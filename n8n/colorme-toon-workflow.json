@@ -1,0 +1,146 @@
+{
+  "name": "ColorMe Toon — توليد صفحات التلوين",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ColorMe Toon\n1. **Webhook**: بيستقبل الطلب من الموقع بعد الدفع (محمي بـ Header Auth).\n2. بيحمّل صورة الطفل.\n3. بيقسم الطلب لـ 10 صفحات (برومبت لكل صفحة).\n4. **OpenAI** بيرسم كل صفحة من صورة الطفل + البرومبت.\n5. بيبعت كل صفحة للموقع أول ما تخلص. الموقع بيقفل الطلب لوحده لما يوصل 10.\n\n**قبل التفعيل:** اختار الـ Credentials في 3 نودز: Webhook و Send page to site (نفس Header Auth)، و Generate page (OpenAI).",
+        "height": 300,
+        "width": 420
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000001",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-260, -140]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "colorme-toon",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000002",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 200],
+      "webhookId": "5c0f6d0e-9b0a-4c55-9a40-c010e7007001"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.photoUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "photo"
+            }
+          }
+        }
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000003",
+      "name": "Download child photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 200],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// بيحوّل الطلب لـ 10 عناصر: عنصر لكل صفحة، ومعاه صورة الطفل\nconst order = $('Webhook').first().json.body;\nconst photo = $input.first().binary.photo;\nconst count = order.imagesCount || 10;\nconst prompts = (order.suggestedPrompts || []).slice(0, count);\n\n// لو العميل كتب ملاحظات (حيوان أليف، لون الشعر...) نضيفها لكل برومبت\nconst extra = order.notes ? ` Extra details from the parent (may be Arabic, translate them): ${order.notes}` : '';\nconst likeness = ' Keep the child\\'s face, hairstyle and features recognizable from the reference photo, but drawn as a simple cartoon. Output must be pure black outlines on a white background, no color, no gray, suitable for printing on A4.';\n\nreturn prompts.map((p, i) => ({\n  json: {\n    orderId: order.orderId,\n    callbackUrl: order.callbackUrl,\n    page: i + 1,\n    prompt: p + likeness + extra,\n  },\n  binary: { photo },\n}));"
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000004",
+      "name": "Split into 10 pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/edits",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "model", "value": "gpt-image-2" },
+            { "name": "prompt", "value": "={{ $json.prompt }}" },
+            { "parameterType": "formBinaryData", "name": "image", "inputDataFieldName": "photo" },
+            { "name": "size", "value": "1024x1536" },
+            { "name": "quality", "value": "medium" },
+            { "name": "n", "value": "1" }
+          ]
+        },
+        "options": {
+          "batching": { "batch": { "batchSize": 2, "batchInterval": 2000 } },
+          "timeout": 240000
+        }
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000005",
+      "name": "Generate page (OpenAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 200],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data[0].b64_json",
+        "binaryPropertyName": "image",
+        "options": {
+          "fileName": "=page-{{ $('Split into 10 pages').item.json.page }}.png",
+          "mimeType": "image/png"
+        }
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000006",
+      "name": "Base64 to image",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Split into 10 pages').item.json.callbackUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "orderId", "value": "={{ $('Split into 10 pages').item.json.orderId }}" },
+            { "name": "append", "value": "true" },
+            { "parameterType": "formBinaryData", "name": "images", "inputDataFieldName": "image" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1f1c0de-0000-4000-8000-000000000007",
+      "name": "Send page to site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 200],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Download child photo", "type": "main", "index": 0 }]] },
+    "Download child photo": { "main": [[{ "node": "Split into 10 pages", "type": "main", "index": 0 }]] },
+    "Split into 10 pages": { "main": [[{ "node": "Generate page (OpenAI)", "type": "main", "index": 0 }]] },
+    "Generate page (OpenAI)": { "main": [[{ "node": "Base64 to image", "type": "main", "index": 0 }]] },
+    "Base64 to image": { "main": [[{ "node": "Send page to site", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
