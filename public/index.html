@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ColorMe Toon — كتاب تلوين بطل طفلك</title>
+  <link rel="icon" href="/img/logo.png" />
+  <meta property="og:image" content="/img/hero.png" />
+  <meta name="description" content="ارفع صورة طفلك وقولنا بيحب إيه، ونعملك 10 صفحات تلوين كارتون بطلها هو." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a href="/" class="brand" style="text-decoration:none"><img src="/img/logo.png" alt="ColorMe Toon" /> <span><b>ColorMe</b> <i>Toon</i></span></a>
+      <a class="btn alt" href="#order" style="font-size:16px;padding:8px 18px">اطلب دلوقتي</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>كتاب تلوين <mark>بطل طفلك</mark> 🎨</h1>
+        <p class="lead">ارفع صورة طفلك وقولنا بيحب يعمل إيه، وهنرسمهولك في <b>10 صفحات تلوين كارتون</b> جاهزة للطباعة — بيلعب كورة، بيطير في الفضاء، أو مع حيواناته المفضلة.</p>
+        <span class="price-tag" id="priceTag">10 صفحات بـ <b id="price">199</b> جنيه</span>
+      </div>
+      <div class="hero-art"><img src="/img/hero.png" alt="قلم ColorMe Toon بيرسم صفحة تلوين لطفل" /></div>
+    </section>
+
+    <section class="steps">
+      <div class="step"><img src="/img/step-upload.png" alt="" loading="lazy" /><div class="n">1</div><h3>ارفع صورة</h3><p>صورة واضحة لوش طفلك، يفضّل من قدّام وفي نور كويس.</p></div>
+      <div class="step"><img src="/img/step-interests.png" alt="" loading="lazy" /><div class="n">2</div><h3>قولنا بيحب إيه</h3><p>كورة؟ ديناصورات؟ رسم؟ اختار أو اكتب اللي يعجبه.</p></div>
+      <div class="step"><img src="/img/step-download.png" alt="" loading="lazy" /><div class="n">3</div><h3>حمّل الصفحات</h3><p>خلال دقايق تلاقي الـ 10 صفحات جاهزين للتحميل والطباعة.</p></div>
+    </section>
+
+
+    <section class="examples">
+      <div class="head"><h2>شوف أمثلة من صفحاتنا ✨</h2><p>كل صفحة بتترسم مخصوص على حسب شكل طفلك والحاجات اللي بيحبها.</p></div>
+      <div class="ex-grid">
+        <div class="ex"><img src="/img/ex-football.png" alt="صفحة تلوين: طفل بيلعب كورة" loading="lazy" /><span>⚽ بيلعب كورة</span></div>
+        <div class="ex"><img src="/img/ex-unicorn.png" alt="صفحة تلوين: بنت راكبة يونيكورن" loading="lazy" /><span>🦄 مع اليونيكورن</span></div>
+        <div class="ex"><img src="/img/ex-space.png" alt="صفحة تلوين: طفل رائد فضاء" loading="lazy" /><span>🚀 في الفضاء</span></div>
+        <div class="ex"><img src="/img/ex-dino.png" alt="صفحة تلوين: بنت مع الديناصورات" loading="lazy" /><span>🦖 مع الديناصورات</span></div>
+      </div>
+    </section>
+
+    <section class="card" id="order">
+      <h2>يلا نبدأ ✏️</h2>
+      <p class="sub">البيانات دي بنستخدمها بس عشان نعمل صفحات طفلك.</p>
+
+      <form id="f" novalidate>
+        <div class="grid">
+          <div class="field full">
+            <label class="lbl">صورة الطفل</label>
+            <div class="drop" id="drop">
+              <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" />
+              <div class="empty"><div class="ico">📸</div><b>اضغط هنا أو اسحب الصورة</b><div class="hint">JPG أو PNG — لحد 10 ميجا</div></div>
+              <div class="preview"><img id="pimg" alt="" /><div><b>تمام! 👌</b><div class="hint">اضغط لو عايز تغيّرها</div></div></div>
+            </div>
+          </div>
+
+          <div class="field"><label class="lbl" for="childName">اسم الطفل</label><input type="text" id="childName" name="childName" maxlength="40" placeholder="مثلاً: يوسف" /></div>
+          <div class="field"><label class="lbl" for="childAge">السن <small>(اختياري)</small></label><input type="number" id="childAge" name="childAge" min="1" max="17" placeholder="5" /></div>
+
+          <div class="field full">
+            <label class="lbl">ولد ولا بنت؟</label>
+            <div class="seg">
+              <label><input type="radio" name="childGender" value="boy" /><span>👦 ولد</span></label>
+              <label><input type="radio" name="childGender" value="girl" /><span>👧 بنت</span></label>
+            </div>
+          </div>
+
+          <div class="field full">
+            <label class="lbl">بيحب يعمل إيه؟ <small>(اختار لحد 10)</small></label>
+            <div class="chips" id="chips"></div>
+            <div class="add-row">
+              <input type="text" id="customInterest" maxlength="40" placeholder="حاجة تانية؟ اكتبها هنا…" />
+              <button type="button" class="btn alt" id="addInterest" style="font-size:16px;padding:8px 18px;box-shadow:3px 3px 0 var(--ink)">ضيف</button>
+            </div>
+          </div>
+
+          <div class="field full"><label class="lbl" for="notes">ملاحظات <small>(اختياري — شخصيته، حيوانه الأليف، لون شعره…)</small></label><textarea id="notes" name="notes" maxlength="300"></textarea></div>
+
+          <div class="field"><label class="lbl" for="parentName">اسمك</label><input type="text" id="parentName" name="parentName" maxlength="80" /></div>
+          <div class="field"><label class="lbl" for="phone">موبايل <small>(اختياري)</small></label><input type="tel" id="phone" name="phone" maxlength="20" placeholder="01xxxxxxxxx" /></div>
+          <div class="field full"><label class="lbl" for="email">الإيميل</label><input type="email" id="email" name="email" maxlength="120" placeholder="name@example.com" dir="ltr" style="text-align:right" /></div>
+
+          <div class="field full">
+            <label class="consent"><input type="checkbox" id="consent" /> <span>أنا ولي أمر الطفل وموافق على استخدام الصورة لعمل صفحات التلوين بالذكاء الاصطناعي. الصورة الأصلية بتتمسح تلقائياً بعد أيام قليلة ومش بتتشارك مع حد.</span></label>
+          </div>
+        </div>
+
+        <div class="submit-row">
+          <div class="err" id="err"></div>
+          <button class="btn" id="go" type="submit">ادفع واعمل الكتاب 🚀</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer>صُنع بحب 🖍️ — ColorMe Toon</footer>
+  <script src="/app.js"></script>
+</body>
+</html>
