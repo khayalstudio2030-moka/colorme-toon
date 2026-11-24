@@ -23,6 +23,7 @@
     } else {
       $('price').textContent = c.price;
       if (c.paymentMode === 'mock') $('go').textContent = 'ادفع واعمل الكتاب (دفع تجريبي) 🚀';
+      if (c.paymentMode === 'manual') $('go').textContent = 'كمّل للدفع (إنستاباي / محفظة) 🚀';
     }
   }).catch(() => {});
 

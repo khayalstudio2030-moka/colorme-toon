@@ -18,7 +18,14 @@
   function show(o) {
     clearTimeout(timer);
     const name = esc(o.childName);
-    if (o.status === 'awaiting_payment') {
+    if (o.paymentMode === 'manual' && ['awaiting_payment', 'payment_rejected'].includes(o.status)) {
+      manualPay(o);
+    } else if (o.status === 'awaiting_review') {
+      box.innerHTML = `<div class="big">🧾</div><h2>استلمنا إيصال التحويل!</h2>
+        <p class="hint">بنراجع الدفع دلوقتي، وأول ما يتأكد هنبدأ نرسم صفحات ${name} على طول.<br/>عادةً خلال ساعة في مواعيد العمل. الصفحة دي هتتحدث لوحدها.</p>
+        <div class="progress"><i></i></div>`;
+      timer = setTimeout(load, 10000);
+    } else if (o.status === 'awaiting_payment') {
       if (o.paymentMode === 'mock') {
         box.innerHTML = `<div class="big">💳</div><h2>خطوة الدفع</h2>
           <p class="hint">الموقع شغال في وضع الدفع التجريبي — مفيش فلوس هتتخصم.</p>
@@ -49,6 +56,61 @@
       box.innerHTML = `<div class="big">😕</div><h2>حصلت مشكلة في تجهيز الصفحات</h2>
         <p class="hint">متقلقش، فريقنا هيتواصل معاك على الإيميل ويحلّها.</p>`;
     }
+  }
+
+  function manualPay(o) {
+    const m = o.manualPay;
+    const rejected = o.status === 'payment_rejected';
+    box.innerHTML = `<div class="big">💳</div><h2>ادفع ${o.price} جنيه وابعتلنا الإيصال</h2>
+      ${rejected ? `<p class="err-box">⚠️ مقدرناش نأكد التحويل اللي فات${o.rejectReason ? ': ' + esc(o.rejectReason) : ''}. ابعت الإيصال الصح تاني.</p>` : ''}
+      <p class="hint">حوّل المبلغ بأي طريقة من دول، وبعدين ارفع صورة (سكرين شوت) من التحويل تحت.</p>
+      <div class="pay-grid">
+        <div class="pay-opt">
+          <h3>إنستاباي</h3>
+          <img class="qr" src="/img/instapay-qr.png" alt="QR إنستاباي" />
+          <div class="copy-row"><code>${esc(m.instapay)}</code><button type="button" class="copy" data-v="${esc(m.instapay)}">نسخ</button></div>
+          <a class="btn alt small" href="${esc(m.instapayLink)}" target="_blank" rel="noopener">افتح إنستاباي وادفع</a>
+        </div>
+        <div class="pay-opt">
+          <h3>محفظة إلكترونية</h3>
+          <p class="hint" style="margin:6px 0">فودافون كاش، أورنج كاش، اتصالات كاش، WE Pay أو أي محفظة</p>
+          <div class="copy-row big-num"><code>${esc(m.wallet)}</code><button type="button" class="copy" data-v="${esc(m.wallet)}">نسخ</button></div>
+        </div>
+      </div>
+      <form id="rf" class="receipt-form">
+        <label class="lbl">دفعت بإيه؟</label>
+        <div class="seg">
+          <label><input type="radio" name="method" value="instapay" checked /><span>إنستاباي</span></label>
+          <label><input type="radio" name="method" value="wallet" /><span>محفظة</span></label>
+        </div>
+        <label class="lbl" for="sender">اسمك أو الرقم اللي حوّلت منه</label>
+        <input type="text" id="sender" maxlength="80" placeholder="عشان نلاقي التحويل بسرعة" />
+        <label class="lbl" for="receipt">صورة إيصال التحويل</label>
+        <input type="file" id="receipt" accept="image/*,application/pdf" />
+        <p class="err" id="rerr"></p>
+        <button class="btn" id="send">ابعت الإيصال ✅</button>
+      </form>`;
+    box.querySelectorAll('.copy').forEach((b) => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.v); b.textContent = 'اتنسخ ✓'; setTimeout(() => (b.textContent = 'نسخ'), 1500); } catch {}
+    });
+    document.getElementById('rf').onsubmit = async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('rerr'); err.textContent = '';
+      const f = document.getElementById('receipt').files[0];
+      if (!f) return (err.textContent = 'ارفع صورة إيصال التحويل');
+      if (f.size > 10 * 1024 * 1024) return (err.textContent = 'الصورة أكبر من 10 ميجا');
+      const fd = new FormData();
+      fd.append('receipt', f);
+      fd.append('method', document.querySelector('input[name=method]:checked').value);
+      fd.append('senderInfo', document.getElementById('sender').value.trim());
+      const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'بنرفع… ⏳';
+      try {
+        const r = await fetch(`/api/orders/${encodeURIComponent(id)}/receipt?t=${encodeURIComponent(t)}`, { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || 'حصلت مشكلة');
+        show(d);
+      } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'ابعت الإيصال ✅'; }
+    };
   }
 
   if (!id || !t) box.innerHTML = '<div class="big">🤔</div><h2>اللينك ناقص</h2>';
