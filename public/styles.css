@@ -238,3 +238,5 @@ html, body { overflow-x: hidden; }
 .cover-wait { color: var(--orange); font-weight: 700; }
 .gallery .cover-card { border-color: var(--orange); box-shadow: 4px 4px 0 var(--orange); }
 .gallery .cover-card img { object-fit: cover; }
+.btn.is-wait { opacity: .75; cursor: progress; animation: waitPulse 1.2s ease-in-out infinite; }
+@keyframes waitPulse { 50% { opacity: .45; } }
