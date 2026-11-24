@@ -28,6 +28,17 @@
     try {
       const d = await api('/api/admin/orders');
       data = d.orders;
+      const w = d.whatsapp || {};
+      $('wa').innerHTML = w.configured
+        ? `📲 إشعار واتساب على ${esc(w.phone)} شغال <button class="chip" id="watest">جرّب رسالة</button>`
+        : `📲 إشعار الواتساب لسه مش متفعّل (ناقص CALLMEBOT_APIKEY)`;
+      const wt = $('watest');
+      if (wt) wt.onclick = async () => {
+        wt.disabled = true;
+        try { const r = await api('/api/admin/notify-test', { method: 'POST', body: '{}' }); alert(r.ok ? 'اتبعتت ✅ شوف الواتساب' : 'مااتبعتتش: ' + JSON.stringify(r.results)); }
+        catch (e) { alert(e.message); }
+        wt.disabled = false;
+      };
       $('login').style.display = 'none'; $('panel').style.display = '';
       render();
     } catch (e) { if (e.auth) showLogin(key ? e.message : ''); else alert(e.message); }
@@ -54,7 +65,7 @@
       return `<div class="ord">
         ${rc ? `<a href="${rc}" target="_blank"><img class="rc" src="${rc}" alt="الإيصال" onerror="this.outerHTML='<div class=rc>📄 الإيصال<br/>(اضغط للفتح)</div>'"/></a>` : '<div class="rc">مفيش إيصال</div>'}
         <div>
-          <h3>${esc(o.childName)} <span class="badge ${o.status}">${LABEL[o.status] || o.status}</span></h3>
+          <h3>${esc(o.childName)} <span class="badge ${o.status}">${LABEL[o.status] || o.status}</span>${o.adminFree ? ' <span class="badge free">🎁 مجاني</span>' : ''}</h3>
           <div class="meta">
             <div><b>المبلغ:</b> ${esc(o.price)} جنيه ${o.paymentMethod ? `— ${o.paymentMethod === 'wallet' ? 'محفظة' : 'إنستاباي'}` : ''}</div>
             ${o.senderInfo ? `<div><b>حوّل من:</b> ${esc(o.senderInfo)}</div>` : ''}
@@ -66,7 +77,8 @@
             <div class="hint" style="font-size:12px">${o.id}</div>
           </div>
           <div class="acts">
-            ${['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status) ? `<button class="btn small" data-a="approve" data-id="${o.id}">✅ تأكيد الدفع وابدأ الرسم</button>` : ''}
+            ${['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status) && o.hasReceipt ? `<button class="btn small" data-a="approve" data-id="${o.id}">✅ تأكيد الدفع وابدأ الرسم</button>` : ''}
+            ${['awaiting_payment', 'payment_rejected'].includes(o.status) ? `<button class="btn alt small" data-a="free" data-id="${o.id}">🎁 فعّله مجاناً</button>` : ''}
             ${o.status === 'awaiting_review' ? `<button class="btn alt small" data-a="reject" data-id="${o.id}">❌ رفض</button>` : ''}
             <a class="chip" href="${o.orderUrl}" target="_blank">صفحة الطلب</a>
           </div>
@@ -84,6 +96,10 @@
       const reason = prompt('سبب الرفض (هيظهر للعميل):', 'التحويل موصلش أو المبلغ ناقص');
       if (reason === null) return;
       body = { reason };
+    }
+    if (a === 'free') {
+      if (!confirm(`تعمل طلب ${o.childName} مجاناً؟ الكتاب هيبدأ يترسم من غير دفع.`)) return;
+      a = 'approve'; body = { free: true };
     }
     btn.disabled = true;
     try { await api(`/api/admin/orders/${id}/${a}`, { method: 'POST', body: JSON.stringify(body) }); await load(); }

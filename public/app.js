@@ -16,6 +16,10 @@
   const selected = new Set();
   const $ = (id) => document.getElementById(id);
 
+  // وضع "طلب مجاني" — بيظهر بس لما الأدمن يفتح الرابط من لوحة الطلبات وهو داخل بمفتاحه
+  let adminKey = '';
+  try { if (new URLSearchParams(location.search).get('free') === '1') adminKey = localStorage.getItem('cmt_admin') || ''; } catch {}
+
   fetch('/api/config').then((r) => r.json()).then((c) => {
     if (c.paymentMode === 'free') {
       $('priceTag').innerHTML = '10 صفحات <b>مجاناً</b> 🎁';
@@ -24,6 +28,13 @@
       $('price').textContent = c.price;
       if (c.paymentMode === 'mock') $('go').textContent = 'ادفع واعمل الكتاب (دفع تجريبي) 🚀';
       if (c.paymentMode === 'manual') $('go').textContent = 'كمّل للدفع (إنستاباي / محفظة) 🚀';
+    }
+    if (adminKey) {
+      $('go').textContent = '🎁 اعمل الكتاب مجاناً (أدمن)';
+      const bar = document.createElement('div');
+      bar.className = 'admin-bar';
+      bar.textContent = '🎁 وضع الطلب المجاني — انت داخل كأدمن، الطلب ده مش هيتطلب منه دفع.';
+      document.body.prepend(bar);
     }
   }).catch(() => {});
 
@@ -97,8 +108,9 @@
     if (f.size > 10 * 1024 * 1024) return fail('الصورة أكبر من 10 ميجا');
     if (!$('childName').value.trim()) return fail('اكتب اسم الطفل');
     if (!selected.size) return fail('اختار حاجة واحدة على الأقل بيحبها');
-    if (!$('parentName').value.trim()) return fail('اكتب اسمك');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('email').value.trim())) return fail('الإيميل مش صحيح');
+    if (!adminKey && !$('parentName').value.trim()) return fail('اكتب اسمك');
+    const em = $('email').value.trim();
+    if (!(adminKey && !em) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return fail('الإيميل مش صحيح');
     if (!$('consent').checked) return fail('لازم توافق على استخدام الصورة');
 
     const fd = new FormData();
@@ -110,11 +122,12 @@
     fd.append('interests', JSON.stringify([...selected].map(strip)));
     if (animal) fd.append('favoriteAnimal', animal);
     fd.append('consent', 'true');
+    if (adminKey) fd.append('adminFree', 'true');
 
     const btn = $('go'); const txt = btn.textContent;
     btn.disabled = true; btn.textContent = 'ثانية واحدة… ⏳';
     try {
-      const r = await fetch('/api/orders', { method: 'POST', body: fd });
+      const r = await fetch('/api/orders', { method: 'POST', body: fd, headers: adminKey ? { 'x-admin-key': adminKey } : {} });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'حصلت مشكلة');
       location.href = d.redirect;

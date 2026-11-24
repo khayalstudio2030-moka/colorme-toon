@@ -199,3 +199,4 @@ html, body { overflow-x: hidden; }
 .err-box { background: #fff1ec; border: 2px solid var(--yellow); border-radius: 12px; padding: 10px; }
 .receipt-form .err { color: #c0392b; min-height: 1em; margin: 0; }
 @media (max-width: 640px) { .pay-grid { grid-template-columns: 1fr; } }
+.admin-bar { position: sticky; top: 0; z-index: 50; background: #ffd6f0; border-bottom: 3px solid var(--ink); padding: 10px 16px; text-align: center; font-weight: 700; }

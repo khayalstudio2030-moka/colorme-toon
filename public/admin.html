@@ -19,6 +19,9 @@
     .badge { display: inline-block; border: 2px solid var(--ink); border-radius: 999px; padding: 1px 10px; font-size: 13px; font-weight: 700; background: #eee; }
     .badge.awaiting_review { background: var(--yellow); } .badge.ready { background: #9be39b; } .badge.processing, .badge.paid { background: var(--green); }
     .badge.payment_rejected, .badge.failed { background: #ffb3b3; }
+    .tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+    .wa { font-size: 14px; }
+    .badge.free { background: #ffd6f0; }
     .empty { text-align: center; padding: 40px; color: var(--muted); }
     @media (max-width: 600px) { .ord { grid-template-columns: 1fr; } .ord .rc { width: 100%; height: 260px; } }
   </style>
@@ -35,6 +38,10 @@
     </section>
     <section id="panel" style="display:none">
       <h2>الطلبات <button class="btn alt small" id="refresh" style="margin-inline-start:10px">تحديث ↻</button> <button class="chip" id="logout" style="float:left">خروج</button></h2>
+      <div class="tools">
+        <a class="btn small" href="/?free=1" target="_blank">🎁 اعمل طلب مجاني</a>
+        <span id="wa" class="wa"></span>
+      </div>
       <div class="tabs" id="tabs"></div>
       <div id="list"></div>
     </section>
