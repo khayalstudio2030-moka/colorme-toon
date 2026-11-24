@@ -30,12 +30,12 @@
       data = d.orders;
       const w = d.whatsapp || {};
       $('wa').innerHTML = w.configured
-        ? `📲 إشعار واتساب على ${esc(w.phone)} شغال <button class="chip" id="watest">جرّب رسالة</button>`
-        : `📲 إشعار الواتساب لسه مش متفعّل (ناقص CALLMEBOT_APIKEY)`;
+        ? `🔔 الإشعارات شغالة على: ${esc((w.channels || []).map((c) => ({ telegram: 'تليجرام', whatsapp_greenapi: 'واتساب ' + w.phone, callmebot: 'واتساب ' + w.phone, textmebot: 'واتساب ' + w.phone, webhook: 'Webhook' }[c] || c)).join('، '))} <button class="chip" id="watest">جرّب رسالة</button>`
+        : `🔔 الإشعارات لسه مش متفعّلة (ناقص TELEGRAM_BOT_TOKEN في Railway)`;
       const wt = $('watest');
       if (wt) wt.onclick = async () => {
         wt.disabled = true;
-        try { const r = await api('/api/admin/notify-test', { method: 'POST', body: '{}' }); alert(r.ok ? 'اتبعتت ✅ شوف الواتساب' : 'مااتبعتتش: ' + JSON.stringify(r.results)); }
+        try { const r = await api('/api/admin/notify-test', { method: 'POST', body: '{}' }); alert(r.ok ? 'اتبعتت ✅ شوف تليجرام / واتساب' : 'مااتبعتتش: ' + JSON.stringify(r.results)); }
         catch (e) { alert(e.message); }
         wt.disabled = false;
       };
