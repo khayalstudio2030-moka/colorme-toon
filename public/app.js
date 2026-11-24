@@ -1,9 +1,17 @@
 (() => {
   const PRESETS = [
-    '⚽ كورة القدم', '🦖 الديناصورات', '🚀 الفضاء', '🎨 الرسم', '🚗 العربيات', '🐱 القطط',
-    '🐶 الكلاب', '🦄 اليونيكورن', '👸 الأميرات', '🦸 الأبطال الخارقين', '🏊 السباحة', '🚲 العجلة',
-    '🎵 المزيكا', '💃 الرقص', '📚 القراءة', '🧁 الطبخ', '🌊 البحر', '🦁 الغابة والحيوانات',
+    '⚽ كورة القدم', '🏀 كورة السلة', '🦖 الديناصورات', '🚀 الفضاء', '🤖 الروبوتات', '🔬 العلوم',
+    '♟️ الشطرنج', '🎨 الرسم', '🚗 العربيات', '🦸 الأبطال الخارقين', '🏴‍☠️ القراصنة', '🏊 السباحة',
+    '🚲 العجلة', '🐎 ركوب الخيل', '🤸 الجمباز', '🩰 الباليه', '💃 الرقص', '🎵 المزيكا',
+    '📚 القراءة', '🧁 الطبخ', '🌻 الزراعة', '👸 الأميرات', '🦄 اليونيكورن', '🧜 عروسة البحر',
+    '🌊 البحر', '⛄ الثلج والشتا', '🦁 الغابة والحيوانات', '🐱 القطط', '🐶 الكلاب',
   ];
+  const ANIMALS = [
+    '🐱 قطة', '🐶 كلب', '🐰 أرنب', '🐎 حصان', '🦜 ببغاء', '🐧 بطريق', '🐬 دولفين', '🦁 أسد', '🐢 سلحفاة',
+    '🦆 بطة', '🐘 فيل', '🐟 سمكة', '🦋 فراشة', '🐼 باندا', '🦒 زرافة', '🐒 قرد', '🦖 ديناصور', '🦄 يونيكورن',
+  ];
+  const strip = (s) => s.replace(/^[\p{Extended_Pictographic}\u200d\ufe0f\s]+/u, '').trim();
+  let animal = '';
   const MAX = 10;
   const selected = new Set();
   const $ = (id) => document.getElementById(id);
@@ -44,6 +52,29 @@
   $('addInterest').onclick = addCustom;
   $('customInterest').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
 
+  // الحيوان المفضل (اختيار واحد)
+  const achips = $('animalChips');
+  function renderAnimals() {
+    achips.innerHTML = '';
+    const list = animal && !ANIMALS.some((a) => strip(a) === animal) ? [...ANIMALS, animal] : ANIMALS;
+    for (const label of list) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const v = strip(label);
+      b.className = 'chip' + (animal === v ? ' on' : '') + (!ANIMALS.includes(label) ? ' custom' : '');
+      b.textContent = label;
+      b.onclick = () => { animal = animal === v ? '' : v; renderAnimals(); };
+      achips.appendChild(b);
+    }
+  }
+  renderAnimals();
+  function addAnimal() {
+    const v = $('customAnimal').value.trim();
+    if (v) { animal = v; $('customAnimal').value = ''; renderAnimals(); }
+  }
+  $('addAnimal').onclick = addAnimal;
+  $('customAnimal').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addAnimal(); } });
+
   // الصورة
   const drop = $('drop'), photo = $('photo');
   photo.addEventListener('change', () => {
@@ -75,7 +106,8 @@
     const g = document.querySelector('input[name=childGender]:checked');
     if (g) fd.append('childGender', g.value);
     // نشيل الإيموجي قبل ما نبعت
-    fd.append('interests', JSON.stringify([...selected].map((s) => s.replace(/^[\p{Extended_Pictographic}️\s]+/u, ''))));
+    fd.append('interests', JSON.stringify([...selected].map(strip)));
+    if (animal) fd.append('favoriteAnimal', animal);
     fd.append('consent', 'true');
 
     const btn = $('go'); const txt = btn.textContent;

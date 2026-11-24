@@ -79,7 +79,16 @@
             </div>
           </div>
 
-          <div class="field full"><label class="lbl" for="notes">ملاحظات <small>(اختياري — شخصيته، حيوانه الأليف، لون شعره…)</small></label><textarea id="notes" name="notes" maxlength="300"></textarea></div>
+          <div class="field full">
+            <label class="lbl">حيوانه المفضل؟ <small>(اختياري — هيظهر معاه في الصفحات)</small></label>
+            <div class="chips" id="animalChips"></div>
+            <div class="add-row">
+              <input type="text" id="customAnimal" maxlength="30" placeholder="حيوان تاني؟ اكتبه هنا…" />
+              <button type="button" class="btn alt" id="addAnimal" style="font-size:16px;padding:8px 18px;box-shadow:3px 3px 0 var(--ink)">ضيف</button>
+            </div>
+          </div>
+
+          <div class="field full"><label class="lbl" for="notes">ملاحظات <small>(اختياري — شخصيته، لون شعره، لبسه المفضل…)</small></label><textarea id="notes" name="notes" maxlength="300"></textarea></div>
 
           <div class="field"><label class="lbl" for="parentName">اسمك</label><input type="text" id="parentName" name="parentName" maxlength="80" /></div>
           <div class="field"><label class="lbl" for="phone">موبايل <small>(اختياري)</small></label><input type="tel" id="phone" name="phone" maxlength="20" placeholder="01xxxxxxxxx" /></div>
