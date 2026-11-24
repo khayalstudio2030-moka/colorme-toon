@@ -248,12 +248,12 @@ app.get('/api/admin/orders', (req, res) => {
       hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
     }));
-  res.json({ paymentMode: PAYMENT_MODE, whatsapp: { configured: notify.configured(), phone: notify.PHONE }, orders: list });
+  res.json({ paymentMode: PAYMENT_MODE, whatsapp: { configured: notify.configured(), phone: notify.PHONE, channels: notify.channels() }, orders: list });
 });
 
 app.post('/api/admin/notify-test', async (req, res) => {
   if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
-  if (!notify.configured()) return res.status(400).json({ error: 'إشعار الواتساب مش متظبط لسه (ناقص CALLMEBOT_APIKEY في Railway)' });
+  if (!notify.configured()) return res.status(400).json({ error: 'الإشعارات مش متظبطة لسه (ناقص TELEGRAM_BOT_TOKEN في Railway)' });
   const r = await notify.send('✅ تجربة إشعار من ColorMe Toon — الإشعارات شغالة!');
   res.json({ results: r, ok: r.some((x) => x.ok) });
 });
