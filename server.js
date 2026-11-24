@@ -11,14 +11,22 @@ const paymob = require('./lib/paymob');
 const PORT = Number(process.env.PORT || 3000);
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const PRICE_EGP = Number(process.env.PRICE_EGP || 199);
-// mock = دفع تجريبي (افتراضي) · paymob = دفع حقيقي · free = مجاني
-const PAYMENT_MODE = ['paymob', 'free'].includes(process.env.PAYMENT_MODE) ? process.env.PAYMENT_MODE : 'mock';
+// manual = إنستاباي/محفظة + مراجعة الإيصال · paymob = دفع أوتوماتيك · mock = تجريبي · free = مجاني
+const PAYMENT_MODE = ['paymob', 'free', 'manual'].includes(process.env.PAYMENT_MODE) ? process.env.PAYMENT_MODE : 'mock';
+const MANUAL_PAY = {
+  instapay: process.env.INSTAPAY_ADDRESS || 'mohamed86kamel@instapay',
+  instapayLink: process.env.INSTAPAY_LINK || 'https://ipn.eg/C/Q/mohamed86kamel/instapay?ISIGN=23052602MEUCIQDgVtGZXD8W5q1aQokJnYWgVOMMsNmHJCnt8sjkReUbSAIgMj+tLuOyyfn+gaERu7VIIJ2c/MF3MixI5qe1CYeIA4A=',
+  wallet: process.env.WALLET_NUMBER || '01020025259',
+};
+const ADMIN_KEY = process.env.ADMIN_KEY || process.env.AUTOMATION_SECRET || '';
 const AUTOMATION_SECRET = process.env.AUTOMATION_SECRET || '';
 const IMAGES_COUNT = 10;
 
 const DATA = path.join(__dirname, 'data');
 const PHOTOS = path.join(DATA, 'photos');
 const RESULTS = path.join(DATA, 'results');
+const RECEIPTS = path.join(DATA, 'receipts');
+fs.mkdirSync(RECEIPTS, { recursive: true });
 fs.mkdirSync(PHOTOS, { recursive: true });
 fs.mkdirSync(RESULTS, { recursive: true });
 
@@ -43,6 +51,16 @@ const uploadPhoto = multer({
   limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) =>
     ALLOWED[file.mimetype] ? cb(null, true) : cb(new Error('نوع الصورة لازم يكون JPG أو PNG أو WEBP')),
+});
+
+const uploadReceipt = multer({
+  storage: multer.diskStorage({
+    destination: RECEIPTS,
+    filename: (req, file, cb) => cb(null, rnd(12) + (ALLOWED[file.mimetype] || '.pdf')),
+  }),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) =>
+    ALLOWED[file.mimetype] || file.mimetype === 'application/pdf' ? cb(null, true) : cb(new Error('ارفع صورة الإيصال (JPG أو PNG) أو PDF')),
 });
 
 // ---------- برومبتات الصفحات (lib/prompts.js) ----------
@@ -87,7 +105,7 @@ async function dispatchToAutomation(order) {
 
 function markPaid(orderId, paymentRef) {
   const order = store.get(orderId);
-  if (!order || order.status !== 'awaiting_payment') return order;
+  if (!order || !['awaiting_payment', 'awaiting_review', 'payment_rejected'].includes(order.status)) return order;
   const updated = store.update(orderId, { status: 'paid', paidAt: new Date().toISOString(), paymentRef });
   dispatchToAutomation(updated);
   return updated;
@@ -100,6 +118,9 @@ function publicOrder(o) {
     childName: o.childName,
     createdAt: o.createdAt,
     paymentMode: PAYMENT_MODE,
+    price: o.price,
+    manualPay: PAYMENT_MODE === 'manual' ? MANUAL_PAY : undefined,
+    rejectReason: o.status === 'payment_rejected' ? o.rejectReason || '' : undefined,
     images: (o.images || []).map((_, i) => `/files/result/${o.id}/${i}?t=${o.accessToken}`),
     zipUrl: o.status === 'ready' ? `/api/orders/${o.id}/zip?t=${o.accessToken}` : null,
   };
@@ -157,7 +178,7 @@ app.post('/api/orders', (req, res) => {
 
     const orderPage = `/order.html?id=${order.id}&t=${order.accessToken}`;
     if (PAYMENT_MODE === 'free') { markPaid(order.id, 'free'); return res.json({ orderId: order.id, redirect: orderPage }); }
-    if (PAYMENT_MODE === 'mock') return res.json({ orderId: order.id, redirect: orderPage });
+    if (PAYMENT_MODE === 'mock' || PAYMENT_MODE === 'manual') return res.json({ orderId: order.id, redirect: orderPage });
 
     try {
       const checkoutUrl = await paymob.createCheckout({ order, priceEgp: PRICE_EGP, baseUrl: BASE_URL });
@@ -172,6 +193,74 @@ app.post('/api/orders', (req, res) => {
 app.get('/api/orders/:id', (req, res) => {
   const o = authOrder(req, res); if (!o) return;
   res.json(publicOrder(o));
+});
+
+// ---------- الدفع اليدوي (إنستاباي / محفظة) ----------
+app.post('/api/orders/:id/receipt', (req, res) => {
+  uploadReceipt.single('receipt')(req, res, (err) => {
+    const cleanup = () => req.file && fs.unlink(req.file.path, () => {});
+    if (err) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'الصورة أكبر من 10 ميجا' : err.message });
+    if (PAYMENT_MODE !== 'manual') { cleanup(); return res.status(403).json({ error: 'غير متاح' }); }
+    const o = store.get(req.params.id);
+    if (!o || !safeEq(req.query.t, o.accessToken)) { cleanup(); return res.status(404).json({ error: 'الطلب مش موجود' }); }
+    if (!['awaiting_payment', 'payment_rejected'].includes(o.status)) { cleanup(); return res.status(400).json({ error: 'الطلب ده اتدفع خلاص' }); }
+    if (!req.file) return res.status(400).json({ error: 'ارفع صورة إيصال التحويل' });
+    const b = req.body || {};
+    if (o.receiptFile) fs.unlink(path.join(RECEIPTS, o.receiptFile), () => {});
+    const updated = store.update(o.id, {
+      status: 'awaiting_review',
+      receiptFile: req.file.filename,
+      paymentMethod: b.method === 'wallet' ? 'wallet' : 'instapay',
+      senderInfo: String(b.senderInfo || '').trim().slice(0, 80),
+      receiptAt: new Date().toISOString(),
+      rejectReason: null,
+    });
+    console.log(`[payment] إيصال جديد للطلب ${o.id} (${updated.paymentMethod})`);
+    res.json(publicOrder(updated));
+  });
+});
+
+// ---------- لوحة الأدمن ----------
+const isAdmin = (req) => safeEq(req.get('x-admin-key') || req.query.key, ADMIN_KEY);
+
+app.get('/api/admin/orders', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const list = store.all()
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 200)
+    .map((o) => ({
+      id: o.id, status: o.status, childName: o.childName, parentName: o.parentName, phone: o.phone, email: o.email,
+      price: o.price, paymentMethod: o.paymentMethod, senderInfo: o.senderInfo, receiptAt: o.receiptAt,
+      hasReceipt: !!o.receiptFile, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
+      orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
+    }));
+  res.json({ paymentMode: PAYMENT_MODE, orders: list });
+});
+
+app.get('/api/admin/orders/:id/receipt', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).end();
+  const o = store.get(req.params.id);
+  if (!o || !o.receiptFile) return res.status(404).end();
+  res.sendFile(path.join(RECEIPTS, o.receiptFile));
+});
+
+app.post('/api/admin/orders/:id/approve', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const o = store.get(req.params.id);
+  if (!o) return res.status(404).json({ error: 'الطلب مش موجود' });
+  if (!['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status)) return res.status(400).json({ error: 'الطلب اتأكد قبل كده' });
+  const u = markPaid(o.id, `manual_${o.paymentMethod || 'instapay'}_${rnd(3)}`);
+  console.log(`[payment] الأدمن أكّد دفع ${o.id}`);
+  res.json({ ok: true, status: u.status });
+});
+
+app.post('/api/admin/orders/:id/reject', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const o = store.get(req.params.id);
+  if (!o || o.status !== 'awaiting_review') return res.status(400).json({ error: 'الطلب مش مستني مراجعة' });
+  const reason = String((req.body && req.body.reason) || '').trim().slice(0, 200);
+  store.update(o.id, { status: 'payment_rejected', rejectReason: reason });
+  res.json({ ok: true });
 });
 
 // دفع تجريبي — شغال بس في وضع mock
