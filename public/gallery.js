@@ -29,12 +29,13 @@
     $('galPages').innerHTML = [1, 2, 3, 4, 5, 6].map((n) =>
       `<button class="gal-page" data-n="${n}"><img src="${page(i, n)}" alt="صفحة تلوين ${n}" loading="lazy" /></button>`).join('');
     $('galTags').innerHTML = `<b>${KIDS[i].g === 'بنت' ? 'بنت بتحب' : 'ولد بيحب'}:</b> ` + KIDS[i].tags.map((t) => `<span>${t}</span>`).join('');
+    document.dispatchEvent(new CustomEvent('gallery:change', { detail: { index: i } }));
   }
   kidsEl.addEventListener('click', (e) => { const b = e.target.closest('.gal-kid'); if (b) show(+b.dataset.i); });
 
   // عرض الصفحة كبيرة
   const lb = $('lightbox');
-  const open = (n) => { lbIdx = n; $('lbImg').src = page(cur, n); lb.hidden = false; document.body.style.overflow = 'hidden'; };
+  const open = (n) => { lbIdx = n; $('lbImg').src = page(cur, n); lb.hidden = false; document.body.style.overflow = 'hidden'; document.dispatchEvent(new CustomEvent('lightbox:open')); };
   const close = () => { lb.hidden = true; document.body.style.overflow = ''; };
   const step = (d) => open(((lbIdx - 1 + d + 6) % 6) + 1);
   $('galPages').addEventListener('click', (e) => { const b = e.target.closest('.gal-page'); if (b) open(+b.dataset.n); });
