@@ -8,6 +8,8 @@ const path = require('path');
 const store = require('./lib/store');
 const paymob = require('./lib/paymob');
 const notify = require('./lib/notify');
+const coverGen = require('./lib/cover');
+const { buildBook } = require('./lib/book');
 
 const PORT = Number(process.env.PORT || 3000);
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -124,6 +126,9 @@ function publicOrder(o) {
     rejectReason: o.status === 'payment_rejected' ? o.rejectReason || '' : undefined,
     images: (o.images || []).map((_, i) => `/files/result/${o.id}/${i}?t=${o.accessToken}`),
     zipUrl: o.status === 'ready' ? `/api/orders/${o.id}/zip?t=${o.accessToken}` : null,
+    pdfUrl: o.status === 'ready' ? `/api/orders/${o.id}/pdf?t=${o.accessToken}` : null,
+    coverUrl: o.cover ? `/files/cover/${o.id}?t=${o.accessToken}` : null,
+    coverStatus: o.coverStatus || null,
   };
 }
 
@@ -245,7 +250,7 @@ app.get('/api/admin/orders', (req, res) => {
     .map((o) => ({
       id: o.id, status: o.status, childName: o.childName, parentName: o.parentName, phone: o.phone, email: o.email,
       price: o.price, paymentMethod: o.paymentMethod, senderInfo: o.senderInfo, receiptAt: o.receiptAt,
-      hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
+      hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, coverStatus: o.coverStatus || null, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
     }));
   res.json({ paymentMode: PAYMENT_MODE, whatsapp: { configured: notify.configured(), phone: notify.PHONE, channels: notify.channels() }, orders: list });
@@ -360,7 +365,8 @@ app.post('/api/automation/callback', uploadResults.array('images', 20), async (r
     });
     const images = [...existing, ...names];
     const done = !append || images.length >= IMAGES_COUNT || b.final === 'true' || b.final === true;
-    store.update(o.id, { images, status: done ? 'ready' : 'processing', readyAt: done ? new Date().toISOString() : null });
+    const u = store.update(o.id, { images, status: done ? 'ready' : 'processing', readyAt: done ? new Date().toISOString() : null });
+    if (done && !u.cover && u.coverStatus !== 'pending') makeCover(u.id);
     console.log(`[automation] الطلب ${o.id}: اتستلم ${names.length} صورة (${done ? 'جاهز' : 'لسه'})`);
     res.json({ ok: true, received: names.length, total: images.length, status: done ? 'ready' : 'processing' });
   } catch (e) {
@@ -379,6 +385,61 @@ app.post('/api/admin/orders/:id/retry', (req, res) => {
 });
 
 // ---------- تحميل النتايج ----------
+// ---------- الغلاف الملوّن + كتاب الـ PDF ----------
+async function makeCover(orderId, tries = 2) {
+  const o = store.get(orderId);
+  if (!o || !(o.images || []).length) return;
+  if (!coverGen.enabled()) { store.update(o.id, { coverStatus: 'off' }); return; }
+  store.update(o.id, { coverStatus: 'pending', coverError: null });
+  const pagePath = path.join(RESULTS, o.id, o.images[0]);
+  const photoPath = o.photoFile && fs.existsSync(path.join(PHOTOS, o.photoFile)) ? path.join(PHOTOS, o.photoFile) : null;
+  try {
+    const { buf, ext } = await coverGen.colorPage({ pagePath, photoPath, order: o });
+    const name = 'cover' + ext;
+    fs.writeFileSync(path.join(RESULTS, o.id, name), buf);
+    store.update(o.id, { cover: name, coverStatus: 'done', coverAt: new Date().toISOString() });
+    console.log(`[cover] غلاف ${o.id} جاهز`);
+  } catch (e) {
+    console.error(`[cover] فشل ${o.id}:`, e.message);
+    if (tries > 1) return setTimeout(() => makeCover(orderId, tries - 1), 20000);
+    store.update(o.id, { coverStatus: 'failed', coverError: e.message.slice(0, 300) });
+  }
+}
+
+app.get('/files/cover/:id', (req, res) => {
+  const o = authOrder(req, res); if (!o) return;
+  if (!o.cover) return res.status(404).end();
+  res.sendFile(path.join(RESULTS, o.id, o.cover));
+});
+
+app.get('/api/orders/:id/pdf', async (req, res) => {
+  const o = authOrder(req, res); if (!o) return;
+  if (o.status !== 'ready') return res.status(400).json({ error: 'الكتاب لسه بيتجهز' });
+  try {
+    const dir = path.join(RESULTS, o.id);
+    const pages = (o.images || []).map((n) => path.join(dir, n)).filter((p) => fs.existsSync(p));
+    const coverPath = o.cover && fs.existsSync(path.join(dir, o.cover)) ? path.join(dir, o.cover) : null;
+    const pdf = await buildBook({ order: o, pages, coverPath });
+    const safe = String(o.childName || 'book').replace(/[^\p{L}\p{N}]+/gu, '-');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="ColorMe-Toon.pdf"; filename*=UTF-8''${encodeURIComponent('كتاب-تلوين-' + safe + '.pdf')}`);
+    res.end(pdf);
+  } catch (e) {
+    console.error('[pdf]', e.message);
+    res.status(500).json({ error: 'حصلت مشكلة في تجهيز الـ PDF' });
+  }
+});
+
+app.post('/api/admin/orders/:id/cover', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const o = store.get(req.params.id);
+  if (!o || o.status !== 'ready') return res.status(400).json({ error: 'الطلب لسه مش جاهز' });
+  if (!coverGen.enabled()) return res.status(400).json({ error: 'ناقص GEMINI_API_KEY في Railway' });
+  if (o.coverStatus === 'pending') return res.status(400).json({ error: 'الغلاف بيتعمل دلوقتي' });
+  makeCover(o.id);
+  res.json({ ok: true });
+});
+
 app.get('/files/result/:id/:n', (req, res) => {
   const o = authOrder(req, res); if (!o) return;
   const name = (o.images || [])[Number(req.params.n)];
@@ -393,6 +454,7 @@ app.get('/api/orders/:id/zip', (req, res) => {
   const zip = archiver('zip', { zlib: { level: 6 } });
   zip.on('error', () => res.end());
   zip.pipe(res);
+  if (o.cover && fs.existsSync(path.join(RESULTS, o.id, o.cover))) zip.file(path.join(RESULTS, o.id, o.cover), { name: '00-' + o.cover });
   for (const name of o.images) zip.file(path.join(RESULTS, o.id, name), { name });
   zip.finalize();
 });
