@@ -34,15 +34,19 @@
     </section>
 
 
-    <section class="examples">
-      <div class="head"><h2>شوف أمثلة من صفحاتنا ✨</h2><p>كل صفحة بتترسم مخصوص على حسب شكل طفلك والحاجات اللي بيحبها.</p></div>
-      <div class="ex-grid">
-        <div class="ex"><img src="/img/ex-football.png" alt="صفحة تلوين: طفل بيلعب كورة" loading="lazy" /><span>⚽ بيلعب كورة</span></div>
-        <div class="ex"><img src="/img/ex-unicorn.png" alt="صفحة تلوين: بنت راكبة يونيكورن" loading="lazy" /><span>🦄 مع اليونيكورن</span></div>
-        <div class="ex"><img src="/img/ex-space.png" alt="صفحة تلوين: طفل رائد فضاء" loading="lazy" /><span>🚀 في الفضاء</span></div>
-        <div class="ex"><img src="/img/ex-dino.png" alt="صفحة تلوين: بنت مع الديناصورات" loading="lazy" /><span>🦖 مع الديناصورات</span></div>
+    <section class="examples" id="gallery">
+      <div class="head"><h2>شوف نماذج من شغلنا ✨</h2><p>اختار طفل وشوف صورته وجنبها صفحات التلوين اللي اتعملتله على حسب الحاجات اللي بيحبها.</p></div>
+      <div class="gal-kids" id="galKids" role="tablist" aria-label="اختار نموذج"></div>
+      <div class="gal-show">
+        <figure class="gal-photo"><img id="galPhoto" alt="" /><figcaption>الصورة الأصلية</figcaption></figure>
+        <div class="gal-arrow" aria-hidden="true">←</div>
+        <div class="gal-pages" id="galPages"></div>
       </div>
+      <p class="gal-tags" id="galTags"></p>
+      <p class="gal-note">النماذج دي لأطفال متخيّلين اتعملوا بالذكاء الاصطناعي، عشان نحافظ على خصوصية أطفال عملائنا.</p>
+      <div style="text-align:center;margin-top:18px"><a href="#order" class="btn">اعمل كتاب لطفلك 🎨</a></div>
     </section>
+    <div class="lightbox" id="lightbox" hidden><button class="lb-x" aria-label="إغلاق">✕</button><button class="lb-nav lb-prev" aria-label="السابق">→</button><img id="lbImg" alt="" /><button class="lb-nav lb-next" aria-label="التالي">←</button></div>
 
     <section class="card" id="order">
       <h2>يلا نبدأ ✏️</h2>
@@ -108,6 +112,7 @@
   </main>
 
   <footer>صُنع بحب 🖍️ — ColorMe Toon</footer>
+  <script src="/gallery.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
