@@ -232,3 +232,9 @@ html, body { overflow-x: hidden; }
   .gal-pages { grid-template-columns: repeat(2, 1fr); }
   .gal-kid { width: 54px; height: 54px; }
 }
+
+/* ---------- تحميل الكتاب ---------- */
+.dl-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; margin: 14px 0 4px; }
+.cover-wait { color: var(--orange); font-weight: 700; }
+.gallery .cover-card { border-color: var(--orange); box-shadow: 4px 4px 0 var(--orange); }
+.gallery .cover-card img { object-fit: cover; }

@@ -73,13 +73,14 @@
             <div><b>وقت الطلب:</b> ${new Date(o.createdAt).toLocaleString('ar-EG')}</div>
             ${o.receiptAt ? `<div><b>وقت الإيصال:</b> ${new Date(o.receiptAt).toLocaleString('ar-EG')}</div>` : ''}
             ${o.rejectReason ? `<div><b>سبب الرفض:</b> ${esc(o.rejectReason)}</div>` : ''}
-            ${o.images ? `<div><b>الصفحات:</b> ${o.images} من 10</div>` : ''}
+            ${o.images ? `<div><b>الصفحات:</b> ${o.images} من 10${o.coverStatus ? ` — <b>الغلاف:</b> ${{ done: '✅ جاهز', pending: '⏳ بيتلوّن', failed: '❌ فشل', off: 'مش متفعّل' }[o.coverStatus] || o.coverStatus}` : ''}</div>` : ''}
             <div class="hint" style="font-size:12px">${o.id}</div>
           </div>
           <div class="acts">
             ${['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status) && o.hasReceipt ? `<button class="btn small" data-a="approve" data-id="${o.id}">✅ تأكيد الدفع وابدأ الرسم</button>` : ''}
             ${['awaiting_payment', 'payment_rejected'].includes(o.status) ? `<button class="btn alt small" data-a="free" data-id="${o.id}">🎁 فعّله مجاناً</button>` : ''}
             ${o.status === 'awaiting_review' ? `<button class="btn alt small" data-a="reject" data-id="${o.id}">❌ رفض</button>` : ''}
+            ${o.status === 'ready' ? `<button class="chip" data-a="cover" data-id="${o.id}">🎨 ${o.coverStatus === 'done' ? 'لوّن الغلاف تاني' : o.coverStatus === 'pending' ? 'الغلاف بيتلوّن…' : 'لوّن الغلاف'}</button>` : ''}
             <a class="chip" href="${o.orderUrl}" target="_blank">صفحة الطلب</a>
           </div>
         </div>
@@ -96,6 +97,10 @@
       const reason = prompt('سبب الرفض (هيظهر للعميل):', 'التحويل موصلش أو المبلغ ناقص');
       if (reason === null) return;
       body = { reason };
+    }
+    if (a === 'cover') {
+      if (o.coverStatus === 'pending') return;
+      if (!confirm('تلوّن غلاف جديد للطلب ده؟ (صورة واحدة من رصيد Google)')) return;
     }
     if (a === 'free') {
       if (!confirm(`تعمل طلب ${o.childName} مجاناً؟ الكتاب هيبدأ يترسم من غير دفع.`)) return;

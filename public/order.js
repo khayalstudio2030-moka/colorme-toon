@@ -48,10 +48,15 @@
       timer = setTimeout(load, 5000);
     } else if (o.status === 'ready') {
       box.innerHTML = `<img class="mascot" src="/img/step-download.png" alt=""/><h2>كتاب تلوين ${name} جاهز!</h2>
-        <p class="hint">اطبعهم على ورق A4 وسيب ${name} يلوّن 🎨</p>
-        <a class="btn" href="${o.zipUrl}">⬇️ حمّل الـ ${o.images.length} صفحات (ZIP)</a>
-        <div class="gallery">${o.images.map((u, i) =>
+        <p class="hint">اطبع الكتاب على ورق A4 وسيب ${name} يلوّن 🎨</p>
+        ${o.coverStatus === 'pending' ? '<p class="hint cover-wait">🖍️ بنلوّن غلاف الكتاب دلوقتي… ثواني ويبقى جوه الـ PDF</p>' : ''}
+        <div class="dl-row">
+          <a class="btn" href="${o.pdfUrl}">📕 حمّل الكتاب PDF</a>
+          <a class="btn alt small" href="${o.zipUrl}">🗂️ الصور (ZIP)</a>
+        </div>
+        <div class="gallery">${o.coverUrl ? `<a href="${o.coverUrl}" target="_blank" class="cover-card"><img src="${o.coverUrl}" alt="غلاف الكتاب"/><span>🎨 الغلاف</span></a>` : ''}${o.images.map((u, i) =>
           `<a href="${u}" download="page-${i + 1}" target="_blank"><img src="${u}" alt="صفحة ${i + 1}" loading="lazy"/><span>صفحة ${i + 1}</span></a>`).join('')}</div>`;
+      if (o.coverStatus === 'pending') timer = setTimeout(load, 8000);
     } else {
       box.innerHTML = `<div class="big">😕</div><h2>حصلت مشكلة في تجهيز الصفحات</h2>
         <p class="hint">متقلقش، فريقنا هيتواصل معاك على الإيميل ويحلّها.</p>`;
