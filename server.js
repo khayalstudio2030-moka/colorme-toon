@@ -45,43 +45,9 @@ const uploadPhoto = multer({
     ALLOWED[file.mimetype] ? cb(null, true) : cb(new Error('نوع الصورة لازم يكون JPG أو PNG أو WEBP')),
 });
 
-// ---------- برومبتات مقترحة للأتمتة ----------
-const STYLE =
-  'black and white coloring book page for kids, cute cartoon style, thick clean outlines, ' +
-  'no shading, no grayscale, no color, white background, simple shapes, large areas to color';
-
-// ترجمة الاهتمامات الجاهزة؛ اللي العميل بيكتبه بنفسه بيتبعت زي ما هو (خلي الأتمتة تترجمه)
-const EN = {
-  'كورة القدم': 'playing football', 'الديناصورات': 'playing with dinosaurs', 'الفضاء': 'exploring outer space as an astronaut',
-  'الرسم': 'painting and drawing', 'العربيات': 'driving a toy race car', 'القطط': 'playing with cats',
-  'الكلاب': 'playing with a puppy', 'اليونيكورن': 'riding a unicorn', 'الأميرات': 'dressed as a princess in a castle',
-  'الأبطال الخارقين': 'flying as a superhero with a cape', 'السباحة': 'swimming', 'العجلة': 'riding a bicycle',
-  'المزيكا': 'playing music instruments', 'الرقص': 'dancing', 'القراءة': 'reading a big storybook',
-  'الطبخ': 'baking cupcakes', 'البحر': 'playing by the sea with fish and shells', 'الغابة والحيوانات': 'with jungle animals like a lion and an elephant',
-};
-
-function buildPrompts(order) {
-  const who = `a cute cartoon ${order.childGender === 'girl' ? 'girl' : order.childGender === 'boy' ? 'boy' : 'child'}` +
-    (order.childAge ? ` around ${order.childAge} years old` : '') +
-    ' who looks like the child in the reference photo';
-  const interests = (order.interests.length ? order.interests : ['playing']).map((s) => EN[s] || s);
-  const scenes = [
-    'happily %s in a sunny park',
-    '%s with friendly animals around',
-    '%s in a magical fairytale world',
-    '%s on a big adventure in space',
-    '%s at the beach with sandcastles',
-    '%s in a cozy room full of toys',
-    '%s in an enchanted forest',
-    '%s under a rainbow with balloons',
-    '%s as a superhero in the city',
-    '%s at a birthday party with a cake',
-  ];
-  return scenes.slice(0, IMAGES_COUNT).map((s, i) => {
-    const activity = interests[i % interests.length];
-    return `${STYLE}. ${who}, ${s.replace('%s', activity)}.`;
-  });
-}
+// ---------- برومبتات الصفحات (lib/prompts.js) ----------
+const { buildPrompts: buildPagePrompts, STYLE } = require('./lib/prompts');
+const buildPrompts = (order) => buildPagePrompts(order, IMAGES_COUNT);
 
 // ---------- إرسال الطلب للأتمتة ----------
 async function dispatchToAutomation(order) {
@@ -91,6 +57,7 @@ async function dispatchToAutomation(order) {
     photoUrl: `${BASE_URL}/files/photo/${order.id}?key=${order.photoKey}`,
     child: { name: order.childName, age: order.childAge, gender: order.childGender },
     interests: order.interests,
+    favoriteAnimal: order.favoriteAnimal,
     notes: order.notes,
     imagesCount: IMAGES_COUNT,
     style: STYLE,
@@ -177,6 +144,7 @@ app.post('/api/orders', (req, res) => {
       childAge: Number(b.childAge) > 0 && Number(b.childAge) < 18 ? Number(b.childAge) : null,
       childGender: ['boy', 'girl'].includes(b.childGender) ? b.childGender : null,
       interests,
+      favoriteAnimal: String(b.favoriteAnimal || '').trim().slice(0, 40),
       notes: String(b.notes || '').trim().slice(0, 300),
       parentName,
       email,
