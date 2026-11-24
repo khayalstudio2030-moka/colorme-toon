@@ -415,6 +415,9 @@ app.get('/files/cover/:id', (req, res) => {
 app.get('/api/orders/:id/pdf', async (req, res) => {
   const o = authOrder(req, res); if (!o) return;
   if (o.status !== 'ready') return res.status(400).json({ error: 'الكتاب لسه بيتجهز' });
+  // لو الغلاف لسه بيتلوّن نستنى لحد 60 ثانية عشان الكتاب يطلع بالغلاف الملوّن
+  for (let i = 0; i < 30 && (store.get(o.id) || {}).coverStatus === 'pending'; i++) await new Promise((r) => setTimeout(r, 2000));
+  Object.assign(o, store.get(o.id));
   try {
     const dir = path.join(RESULTS, o.id);
     const pages = (o.images || []).map((n) => path.join(dir, n)).filter((p) => fs.existsSync(p));
