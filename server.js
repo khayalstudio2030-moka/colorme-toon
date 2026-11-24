@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('./lib/store');
 const paymob = require('./lib/paymob');
+const notify = require('./lib/notify');
 
 const PORT = Number(process.env.PORT || 3000);
 const BASE_URL = (process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -141,6 +142,9 @@ app.post('/api/orders', (req, res) => {
     const b = req.body || {};
     const cleanup = () => req.file && fs.unlink(req.file.path, () => {});
     const fail = (msg) => { cleanup(); res.status(400).json({ error: msg }); };
+    // طلب مجاني من الأدمن — لازم مفتاح الأدمن، والعميل مايشوفش الخيار ده أصلاً
+    const adminFree = b.adminFree === 'true';
+    if (adminFree && !isAdmin(req)) { cleanup(); return res.status(401).json({ error: 'مفتاح الأدمن غلط' }); }
 
     if (!req.file) return fail('ارفع صورة الطفل');
     const childName = String(b.childName || '').trim().slice(0, 40);
@@ -151,8 +155,8 @@ app.post('/api/orders', (req, res) => {
     interests = interests.map((s) => String(s).trim().slice(0, 60)).filter(Boolean).slice(0, 10);
 
     if (!childName) return fail('اكتب اسم الطفل');
-    if (!parentName) return fail('اكتب اسمك');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('الإيميل مش صحيح');
+    if (!parentName && !adminFree) return fail('اكتب اسمك');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !(adminFree && !email)) return fail('الإيميل مش صحيح');
     if (!interests.length) return fail('اختار حاجة واحدة على الأقل الطفل بيحبها');
     if (b.consent !== 'true') return fail('لازم توافق على الشروط');
 
@@ -172,11 +176,13 @@ app.post('/api/orders', (req, res) => {
       phone: String(b.phone || '').trim().slice(0, 20),
       photoFile: req.file.filename,
       images: [],
-      price: PAYMENT_MODE === 'free' ? 0 : PRICE_EGP,
+      price: PAYMENT_MODE === 'free' || adminFree ? 0 : PRICE_EGP,
+      adminFree: adminFree || undefined,
       createdAt: new Date().toISOString(),
     });
 
     const orderPage = `/order.html?id=${order.id}&t=${order.accessToken}`;
+    if (adminFree) { markPaid(order.id, 'admin_free'); console.log(`[admin] طلب مجاني ${order.id}`); return res.json({ orderId: order.id, redirect: orderPage }); }
     if (PAYMENT_MODE === 'free') { markPaid(order.id, 'free'); return res.json({ orderId: order.id, redirect: orderPage }); }
     if (PAYMENT_MODE === 'mock' || PAYMENT_MODE === 'manual') return res.json({ orderId: order.id, redirect: orderPage });
 
@@ -216,6 +222,14 @@ app.post('/api/orders/:id/receipt', (req, res) => {
       rejectReason: null,
     });
     console.log(`[payment] إيصال جديد للطلب ${o.id} (${updated.paymentMethod})`);
+    notify.notifyAdmin([
+      '🧾 إيصال دفع جديد — ColorMe Toon',
+      `الطفل: ${updated.childName}`,
+      `ولي الأمر: ${updated.parentName || '-'} ${updated.phone ? '(' + updated.phone + ')' : ''}`,
+      `المبلغ: ${updated.price} جنيه — ${updated.paymentMethod === 'wallet' ? 'محفظة' : 'إنستاباي'}`,
+      updated.senderInfo ? `حوّل من: ${updated.senderInfo}` : '',
+      `راجعه: ${BASE_URL}/admin.html`,
+    ].filter(Boolean).join('\n'));
     res.json(publicOrder(updated));
   });
 });
@@ -231,10 +245,17 @@ app.get('/api/admin/orders', (req, res) => {
     .map((o) => ({
       id: o.id, status: o.status, childName: o.childName, parentName: o.parentName, phone: o.phone, email: o.email,
       price: o.price, paymentMethod: o.paymentMethod, senderInfo: o.senderInfo, receiptAt: o.receiptAt,
-      hasReceipt: !!o.receiptFile, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
+      hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
     }));
-  res.json({ paymentMode: PAYMENT_MODE, orders: list });
+  res.json({ paymentMode: PAYMENT_MODE, whatsapp: { configured: notify.configured(), phone: notify.PHONE }, orders: list });
+});
+
+app.post('/api/admin/notify-test', async (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  if (!notify.configured()) return res.status(400).json({ error: 'إشعار الواتساب مش متظبط لسه (ناقص CALLMEBOT_APIKEY في Railway)' });
+  const r = await notify.send('✅ تجربة إشعار من ColorMe Toon — الإشعارات شغالة!');
+  res.json({ results: r, ok: r.some((x) => x.ok) });
 });
 
 app.get('/api/admin/orders/:id/receipt', (req, res) => {
@@ -249,8 +270,10 @@ app.post('/api/admin/orders/:id/approve', (req, res) => {
   const o = store.get(req.params.id);
   if (!o) return res.status(404).json({ error: 'الطلب مش موجود' });
   if (!['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status)) return res.status(400).json({ error: 'الطلب اتأكد قبل كده' });
-  const u = markPaid(o.id, `manual_${o.paymentMethod || 'instapay'}_${rnd(3)}`);
-  console.log(`[payment] الأدمن أكّد دفع ${o.id}`);
+  const free = !!(req.body && req.body.free);
+  if (free) store.update(o.id, { price: 0, adminFree: true });
+  const u = markPaid(o.id, free ? 'admin_free' : `manual_${o.paymentMethod || 'instapay'}_${rnd(3)}`);
+  console.log(`[payment] الأدمن ${free ? 'فعّل مجاناً' : 'أكّد دفع'} ${o.id}`);
   res.json({ ok: true, status: u.status });
 });
 
