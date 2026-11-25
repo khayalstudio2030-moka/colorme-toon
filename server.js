@@ -36,6 +36,16 @@ fs.mkdirSync(RESULTS, { recursive: true });
 const app = express();
 app.set('trust proxy', true);
 app.use(express.json({ limit: '1mb' }));
+// الدومين الأساسي: أي صفحة تتفتح من لينك railway القديم تتحوّل لـ colormetoon.com (عشان جوجل مايشوفش نسختين)
+// الـ API والملفات مش بتتحوّل، عشان n8n والكولباك يفضلوا شغالين
+const CANON = (process.env.CANONICAL_HOST || '').trim();
+app.use((req, res, next) => {
+  if (CANON && req.method === 'GET' && req.hostname && req.hostname.endsWith('.up.railway.app')
+      && !req.path.startsWith('/api/') && !req.path.startsWith('/files/')) {
+    return res.redirect(301, `https://${CANON}${req.originalUrl}`);
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 const rnd = (n = 16) => crypto.randomBytes(n).toString('hex');
