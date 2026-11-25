@@ -240,3 +240,14 @@ html, body { overflow-x: hidden; }
 .gallery .cover-card img { object-fit: cover; }
 .btn.is-wait { opacity: .75; cursor: progress; animation: waitPulse 1.2s ease-in-out infinite; }
 @keyframes waitPulse { 50% { opacity: .45; } }
+
+/* روابط السوشيال */
+.social { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 26px 0 0; }
+.social-t { font-family: 'Baloo Bhaijaan 2', 'Tajawal', sans-serif; font-weight: 800; font-size: 18px; margin-inline-end: 4px; }
+.social a { width: 46px; height: 46px; border-radius: 14px; border: 2.5px solid var(--ink); background: #fff; display: grid; place-items: center; box-shadow: 3px 3px 0 var(--ink); color: var(--ink); transition: transform .15s ease, box-shadow .15s ease; }
+.social a svg { width: 24px; height: 24px; fill: currentColor; }
+.social a.s-ig svg { fill: none; }
+.social a:hover, .social a:focus-visible { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+.social a.s-fb:hover { background: #1877f2; color: #fff; }
+.social a.s-ig:hover { background: linear-gradient(45deg, #f9a03f, #e1306c 55%, #833ab4); color: #fff; }
+.social a.s-tt:hover { background: #111; color: #fff; }
