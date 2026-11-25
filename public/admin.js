@@ -31,7 +31,8 @@
       const w = d.whatsapp || {};
       $('wa').innerHTML = w.configured
         ? `🔔 الإشعارات شغالة على: ${esc((w.channels || []).map((c) => ({ telegram: 'تليجرام', whatsapp_greenapi: 'واتساب ' + w.phone, callmebot: 'واتساب ' + w.phone, textmebot: 'واتساب ' + w.phone, webhook: 'Webhook' }[c] || c)).join('، '))} <button class="chip" id="watest">جرّب رسالة</button>`
-        : `🔔 الإشعارات لسه مش متفعّلة (ناقص TELEGRAM_BOT_TOKEN في Railway)`;
+        : `🔔 الإشعارات لسه مش متفعّلة (ناقص TELEGRAM_BOT_TOKEN في Railway)`
+      $('wa').innerHTML += `<br/>🖍️ الرسم: ${d.generator === 'server' ? 'من السيرفر مباشرة (Gemini)' : 'عن طريق n8n'}`;
       const wt = $('watest');
       if (wt) wt.onclick = async () => {
         wt.disabled = true;
@@ -74,12 +75,15 @@
             ${o.receiptAt ? `<div><b>وقت الإيصال:</b> ${new Date(o.receiptAt).toLocaleString('ar-EG')}</div>` : ''}
             ${o.rejectReason ? `<div><b>سبب الرفض:</b> ${esc(o.rejectReason)}</div>` : ''}
             ${o.images ? `<div><b>الصفحات:</b> ${o.images} من 10${o.coverStatus ? ` — <b>الغلاف:</b> ${{ done: '✅ جاهز', pending: '⏳ بيتلوّن', failed: '❌ فشل', off: 'مش متفعّل' }[o.coverStatus] || o.coverStatus}` : ''}</div>` : ''}
-            <div class="hint" style="font-size:12px">${o.id}</div>
+            ${o.status === 'failed' && o.error ? `<div style="color:#c0392b"><b>المشكلة:</b> ${esc(o.error)}</div>` : ''}
+            <div class="hint" style="font-size:12px">${o.id}${o.generator === 'server' ? ' — اترسم من السيرفر' : ''}</div>
           </div>
           <div class="acts">
             ${['awaiting_review', 'awaiting_payment', 'payment_rejected'].includes(o.status) && o.hasReceipt ? `<button class="btn small" data-a="approve" data-id="${o.id}">✅ تأكيد الدفع وابدأ الرسم</button>` : ''}
             ${['awaiting_payment', 'payment_rejected'].includes(o.status) ? `<button class="btn alt small" data-a="free" data-id="${o.id}">🎁 فعّله مجاناً</button>` : ''}
             ${o.status === 'awaiting_review' ? `<button class="btn alt small" data-a="reject" data-id="${o.id}">❌ رفض</button>` : ''}
+            ${o.status === 'failed' || (['paid', 'processing'].includes(o.status) && o.dispatchedAt && Date.now() - new Date(o.dispatchedAt) > 15 * 60000) ? `<button class="btn small" data-a="resume" data-id="${o.id}">🔁 كمّل الرسم</button>` : ''}
+            ${o.status === 'ready' ? `<button class="chip" data-a="redo" data-id="${o.id}">🖌️ أعد رسم صفحة</button>` : ''}
             ${o.status === 'ready' ? `<button class="chip" data-a="cover" data-id="${o.id}">🎨 ${o.coverStatus === 'done' ? 'لوّن الغلاف تاني' : o.coverStatus === 'pending' ? 'الغلاف بيتلوّن…' : 'لوّن الغلاف'}</button>` : ''}
             <a class="chip" href="${o.orderUrl}" target="_blank">صفحة الطلب</a>
           </div>
@@ -101,6 +105,13 @@
     if (a === 'cover') {
       if (o.coverStatus === 'pending') return;
       if (!confirm('تلوّن غلاف جديد للطلب ده؟ (صورة واحدة من رصيد Google)')) return;
+    }
+    if (a === 'resume' && !confirm(`تكمّل رسم طلب ${o.childName}؟ الصفحات الناقصة بس هي اللي هتترسم.`)) return;
+    if (a === 'redo') {
+      const n = prompt(`رقم الصفحة اللي عايز ترسمها تاني (1 لـ 10)؟\nصفحة 1 بيتعمل منها الغلاف كمان، فهيتلوّن من جديد.`, '');
+      if (n === null || !n.trim()) return;
+      a = 'redo-page'; body = { page: Number(n.trim()) };
+      btn.textContent = '⏳ بنرسم الصفحة… (حوالي دقيقة)';
     }
     if (a === 'free') {
       if (!confirm(`تعمل طلب ${o.childName} مجاناً؟ الكتاب هيبدأ يترسم من غير دفع.`)) return;
