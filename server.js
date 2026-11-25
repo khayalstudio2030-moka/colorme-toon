@@ -78,10 +78,15 @@ const uploadReceipt = multer({
 
 // ---------- برومبتات الصفحات (lib/prompts.js) ----------
 const { buildPrompts: buildPagePrompts, STYLE } = require('./lib/prompts');
+const pagesGen = require('./lib/pages');
 const buildPrompts = (order) => buildPagePrompts(order, IMAGES_COUNT);
 
 // ---------- إرسال الطلب للأتمتة ----------
+// مين بيرسم الصفحات: GENERATOR=server (السيرفر نفسه بيكلّم Gemini) أو n8n (الافتراضي)
+const GENERATOR = () => ((process.env.GENERATOR || 'n8n').trim().toLowerCase() === 'server' && pagesGen.enabled() ? 'server' : 'n8n');
+
 async function dispatchToAutomation(order) {
+  if (GENERATOR() === 'server') { generateOnServer(order.id); return; }
   const url = process.env.AUTOMATION_WEBHOOK_URL;
   const payload = {
     orderId: order.id,
@@ -260,10 +265,10 @@ app.get('/api/admin/orders', (req, res) => {
     .map((o) => ({
       id: o.id, status: o.status, childName: o.childName, parentName: o.parentName, phone: o.phone, email: o.email,
       price: o.price, paymentMethod: o.paymentMethod, senderInfo: o.senderInfo, receiptAt: o.receiptAt,
-      hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, coverStatus: o.coverStatus || null, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason,
+      hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, coverStatus: o.coverStatus || null, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason, error: o.error || o.dispatchError || null, generator: o.generator || null, dispatchedAt: o.dispatchedAt || null,
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
     }));
-  res.json({ paymentMode: PAYMENT_MODE, whatsapp: { configured: notify.configured(), phone: notify.PHONE, channels: notify.channels() }, orders: list });
+  res.json({ paymentMode: PAYMENT_MODE, generator: GENERATOR(), whatsapp: { configured: notify.configured(), phone: notify.PHONE, channels: notify.channels() }, orders: list });
 });
 
 app.post('/api/admin/notify-test', async (req, res) => {
@@ -394,6 +399,112 @@ app.post('/api/admin/orders/:id/retry', (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- رسم الصفحات من السيرفر (بدل n8n) ----------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const PAGE_RE = /^page-(\d{2})\.(png|jpg|jpeg|webp)$/i;
+const pageFiles = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => PAGE_RE.test(n)).sort() : []);
+const childPhoto = (o) => (o.photoFile && fs.existsSync(path.join(PHOTOS, o.photoFile)) ? path.join(PHOTOS, o.photoFile) : null);
+const running = new Set();
+
+// بيرسم صفحة واحدة (بمحاولات) ويحفظها باسم page-NN — ولو فيه نسخة قديمة بامتداد تاني بيمسحها
+async function drawOnePage(o, n, prompts, photoPath, tries = 3) {
+  const dir = path.join(RESULTS, o.id);
+  let last;
+  for (let t = 1; t <= tries; t++) {
+    try {
+      const { buf, ext } = await pagesGen.drawPage({ prompt: pagesGen.pagePrompt(prompts[n - 1], o), photoPath });
+      const nn = String(n).padStart(2, '0');
+      for (const old of pageFiles(dir)) if (old.startsWith(`page-${nn}.`)) fs.unlinkSync(path.join(dir, old));
+      fs.writeFileSync(path.join(dir, `page-${nn}${ext}`), buf);
+      store.update(o.id, { images: pageFiles(dir) });
+      console.log(`[pages] ${o.id}: صفحة ${n} جاهزة`);
+      return;
+    } catch (e) {
+      last = e;
+      console.error(`[pages] ${o.id}: صفحة ${n} محاولة ${t} فشلت:`, e.message);
+      if (t < tries) await sleep(t * 15000);
+    }
+  }
+  throw last;
+}
+
+// بيرسم الصفحات الناقصة بس (فلو اتقطع في النص بيكمّل من مكانه)
+async function generateOnServer(orderId) {
+  if (running.has(orderId)) return;
+  running.add(orderId);
+  try {
+    const o = store.get(orderId);
+    if (!o) return;
+    const photoPath = childPhoto(o);
+    if (!photoPath) {
+      store.update(o.id, { status: 'failed', generator: 'server', error: 'صورة الطفل مش موجودة' });
+      notify.notifyAdmin(`⚠️ طلب ${o.childName} (${o.id}) وقف: صورة الطفل مش موجودة.`);
+      return;
+    }
+    const dir = path.join(RESULTS, o.id);
+    fs.mkdirSync(dir, { recursive: true });
+    const prompts = buildPrompts(o);
+    const have = new Set(pageFiles(dir).map((f) => Number(f.slice(5, 7))));
+    const todo = prompts.map((_, i) => i + 1).filter((n) => !have.has(n));
+    store.update(o.id, { status: 'processing', generator: 'server', dispatchedAt: o.dispatchedAt || new Date().toISOString(), dispatchError: null, error: null, images: pageFiles(dir) });
+    console.log(`[pages] ${o.id}: هيترسم ${todo.length} صفحة من السيرفر`);
+
+    const errors = [];
+    const worker = async () => {
+      while (todo.length) {
+        const n = todo.shift();
+        try { await drawOnePage(o, n, prompts, photoPath); } catch (e) { errors.push(`صفحة ${n}: ${e.message}`); }
+      }
+    };
+    await Promise.all([worker(), worker()]); // صفحتين في نفس الوقت زي n8n
+
+    const images = pageFiles(dir);
+    if (images.length >= prompts.length) {
+      const u = store.update(o.id, { images, status: 'ready', readyAt: new Date().toISOString(), error: null });
+      console.log(`[pages] ${o.id}: الكتاب جاهز`);
+      if (!u.cover && u.coverStatus !== 'pending') makeCover(u.id);
+    } else {
+      const err = errors.join(' | ').slice(0, 500);
+      store.update(o.id, { images, status: 'failed', error: err });
+      notify.notifyAdmin(`⚠️ رسم طلب ${o.childName} وقف عند ${images.length} من ${prompts.length} صفحات.\nمن لوحة الأدمن دوس "🔁 كمّل الرسم".\n${err.slice(0, 300)}`);
+    }
+  } catch (e) {
+    console.error('[pages]', e.message);
+    store.update(orderId, { status: 'failed', error: e.message.slice(0, 500) });
+  } finally { running.delete(orderId); }
+}
+
+// كمّل رسم طلب وقف (بيرسم الناقص بس من السيرفر، أو بيبعته لـ n8n تاني لو ده الوضع)
+app.post('/api/admin/orders/:id/resume', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const o = store.get(req.params.id);
+  if (!o || !['paid', 'processing', 'failed'].includes(o.status)) return res.status(400).json({ error: 'الطلب مش في حالة رسم' });
+  if (running.has(o.id)) return res.status(400).json({ error: 'الطلب بيترسم دلوقتي' });
+  dispatchToAutomation(o);
+  res.json({ ok: true });
+});
+
+// إعادة رسم صفحة واحدة في طلب جاهز
+app.post('/api/admin/orders/:id/redo-page', async (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const o = store.get(req.params.id);
+  const n = Number((req.body || {}).page);
+  if (!o || o.status !== 'ready') return res.status(400).json({ error: 'الطلب لسه مش جاهز' });
+  if (!Number.isInteger(n) || n < 1 || n > IMAGES_COUNT) return res.status(400).json({ error: `رقم الصفحة لازم يكون من 1 لـ ${IMAGES_COUNT}` });
+  if (!pagesGen.enabled()) return res.status(400).json({ error: 'ناقص GEMINI_API_KEY في Railway' });
+  const photoPath = childPhoto(o);
+  if (!photoPath) return res.status(400).json({ error: 'صورة الطفل اتمسحت (بعد 7 أيام)، مينفعش نعيد الرسم' });
+  if (running.has(o.id)) return res.status(400).json({ error: 'فيه رسم شغال للطلب ده دلوقتي' });
+  running.add(o.id);
+  try {
+    await drawOnePage(o, n, buildPrompts(o), photoPath, 2);
+    if (n === 1 && coverGen.enabled()) { store.update(o.id, { cover: null }); makeCover(o.id); } // الغلاف معمول من صفحة 1
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'فشل الرسم: ' + e.message.slice(0, 200) });
+  } finally { running.delete(o.id); }
+});
+
 // ---------- تحميل النتايج ----------
 // ---------- الغلاف الملوّن + كتاب الـ PDF ----------
 async function makeCover(orderId, tries = 2) {
@@ -487,5 +598,12 @@ setInterval(purgeOldPhotos, 6 * 36e5);
 purgeOldPhotos();
 
 app.listen(PORT, () => {
-  console.log(`✅ الموقع شغال على ${BASE_URL}  (الدفع: ${PAYMENT_MODE})`);
+  console.log(`✅ الموقع شغال على ${BASE_URL}  (الدفع: ${PAYMENT_MODE}، الرسم: ${GENERATOR()})`);
+  // لو السيرفر اتعمله restart وهو بيرسم، يكمّل الطلبات اللي كانت شغالة
+  if (GENERATOR() === 'server') {
+    store.all().filter((o) => o.status === 'processing' && o.generator === 'server').forEach((o) => {
+      console.log(`[pages] بكمّل ${o.id} بعد الـ restart`);
+      generateOnServer(o.id);
+    });
+  }
 });
