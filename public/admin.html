@@ -24,6 +24,23 @@
     .badge.free { background: #ffd6f0; }
     .empty { text-align: center; padding: 40px; color: var(--muted); }
     @media (max-width: 600px) { .ord { grid-template-columns: 1fr; } .ord .rc { width: 100%; height: 260px; } }
+    .st-sec { border: 3px solid var(--ink); border-radius: 18px; padding: 16px; margin: 14px 0 22px; background: #fff; box-shadow: 4px 4px 0 var(--ink); }
+    .st-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0; }
+    .st-kpi { border: 2px solid var(--ink); border-radius: 14px; padding: 10px 12px; background: #fffbea; }
+    .st-kpi b { display: block; font-size: 26px; line-height: 1.2; }
+    .st-kpi span { font-size: 13px; color: var(--muted); }
+    .fun { margin: 8px 0 4px; }
+    .fun-row { display: grid; grid-template-columns: 150px 1fr 120px; gap: 10px; align-items: center; margin: 7px 0; font-size: 14px; }
+    .fun-bar { height: 26px; border: 2px solid var(--ink); border-radius: 8px; background: #f2f2f2; overflow: hidden; }
+    .fun-bar i { display: block; height: 100%; background: var(--green, #7bd389); }
+    .fun-row .drop { font-size: 12px; color: #c0392b; }
+    .fun-row.worst .fun-bar { box-shadow: 0 0 0 3px #ffb3b3; }
+    .st-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .st-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .st-tbl th, .st-tbl td { border-bottom: 1px solid #ddd; padding: 5px 6px; text-align: center; }
+    .st-tbl th { background: #f6f6f6; }
+    .st-note { background: #fff3cd; border: 2px solid var(--ink); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 10px; }
+    @media (max-width: 600px) { .st-cols { grid-template-columns: 1fr; } .fun-row { grid-template-columns: 105px 1fr 82px; font-size: 13px; } }
   </style>
 </head>
 <body>
@@ -40,8 +57,10 @@
       <h2>الطلبات <button class="btn alt small" id="refresh" style="margin-inline-start:10px">تحديث ↻</button> <button class="chip" id="logout" style="float:left">خروج</button></h2>
       <div class="tools">
         <a class="btn small" href="/?free=1" target="_blank">🎁 اعمل طلب مجاني</a>
+        <button class="btn alt small" id="statsBtn">📊 الإحصائيات</button>
         <span id="wa" class="wa"></span>
       </div>
+      <section class="st-sec" id="stats" style="display:none"></section>
       <div class="tabs" id="tabs"></div>
       <div id="list"></div>
     </section>

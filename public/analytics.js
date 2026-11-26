@@ -44,9 +44,35 @@
   };
   const sent = {};
 
+  // عدّاد الموقع الداخلي (لوحة الأدمن ← الإحصائيات)
+  let sid = '';
+  try { sid = sessionStorage.getItem('cmt_sid') || ''; if (!sid) { sid = Math.random().toString(36).slice(2, 12); sessionStorage.setItem('cmt_sid', sid); } } catch {}
+  const ping = (e, extra = {}) => {
+    if (skip) return;
+    try {
+      const body = JSON.stringify({ e, sid, ...extra });
+      if (!(navigator.sendBeacon && navigator.sendBeacon('/api/t', body))) fetch('/api/t', { method: 'POST', body, keepalive: true });
+    } catch {}
+  };
+  (() => {
+    let src = 'direct';
+    try {
+      const q = new URLSearchParams(location.search);
+      const ref = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : '';
+      if (q.get('utm_source')) src = q.get('utm_source');
+      else if (q.get('fbclid')) src = /instagram/.test(ref) ? 'instagram' : 'facebook';
+      else if (ref && ref !== location.hostname.replace(/^www\./, '')) {
+        src = /facebook|fb\./.test(ref) ? 'facebook' : /instagram/.test(ref) ? 'instagram' : /tiktok/.test(ref) ? 'tiktok'
+          : /google/.test(ref) ? 'google' : /linkedin|lnkd/.test(ref) ? 'linkedin' : /whatsapp|wa\.me/.test(ref) ? 'whatsapp' : ref;
+      } else if (ref) src = '';
+    } catch {}
+    if (src) ping('visit', { src, dev: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop' });
+  })();
+
   // track('begin_checkout', {value:199}) — once: true يبعت الحدث مرة واحدة بس في الزيارة
   window.track = (name, params = {}, once = false) => {
     if (once) { if (sent[name]) return; sent[name] = 1; }
+    ping(name);
     try {
       if (gaOk) window.gtag('event', name, params);
       const m = META[name];
