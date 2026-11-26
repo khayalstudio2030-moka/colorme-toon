@@ -151,6 +151,10 @@
       for (const k of Object.keys(ord)) ord[k] += d.orders[k] || 0;
     }
     const v0 = ev.visit || 0;
+    // نسبة الشراء من الأيام اللي العدّاد كان شغال فيها بس
+    let cv = 0, cp = 0;
+    for (const d of sel) if (statsData.since && d.day >= statsData.since) { cv += d.ev.visit || 0; cp += d.orders.paidCount || 0; }
+    const conv = cv ? Math.min(pct(cp, cv), 100) + '%' : '—';
     // أكبر نقطة الناس بتخرج عندها
     let worst = -1, worstLoss = 0;
     STEPS.forEach(([k], i) => { if (!i) return; const prev = ev[STEPS[i - 1][0]] || 0, cur = ev[k] || 0; if (prev - cur > worstLoss) { worstLoss = prev - cur; worst = i; } });
@@ -158,7 +162,7 @@
       const n = ev[k] || 0, prev = i ? ev[STEPS[i - 1][0]] || 0 : n;
       const lost = i ? prev - n : 0;
       return `<div class="fun-row ${i === worst ? 'worst' : ''}"><div>${l}</div><div class="fun-bar"><i style="width:${v0 ? Math.max(pct(n, v0), n ? 2 : 0) : 0}%"></i></div>
-        <div><b>${n}</b> ${i ? `<span class="hint">(${pct(n, prev)}%)</span>` : ''}${lost > 0 ? `<div class="drop">خرج ${lost}</div>` : ''}</div></div>`;
+        <div><b>${n}</b> ${i ? `<span class="hint">(${pct(n, prev)}%)</span>` : ''}${lost > 0 ? `<div class="st-drop">خرج ${lost}</div>` : ''}</div></div>`;
     }).join('');
     const srcRows = Object.entries(src).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<tr><td>${esc(SRC[k] || k)}</td><td>${n}</td><td>${pct(n, v0)}%</td></tr>`).join('') || '<tr><td colspan="3">لسه مفيش</td></tr>';
     const mob = dev.mobile || 0, desk = dev.desktop || 0;
@@ -176,7 +180,7 @@
         <div class="st-kpi"><b>${ord.receipts}</b><span>إيصال اترفع</span></div>
         <div class="st-kpi"><b>${ord.paidCount}</b><span>طلب مدفوع ومتأكد</span></div>
         <div class="st-kpi"><b>${ord.revenue}</b><span>جنيه دخل</span></div>
-        <div class="st-kpi"><b>${v0 ? pct(ord.paidCount, v0) : 0}%</b><span>من الزوار اشتروا</span></div>
+        <div class="st-kpi"><b>${conv}</b><span>من الزوار اشتروا</span></div>
       </div>
       <h4 style="margin:14px 0 4px">الزوار وصلوا لحد فين؟</h4>
       <div class="fun">${funnel}</div>
