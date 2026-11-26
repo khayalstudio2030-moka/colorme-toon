@@ -94,7 +94,11 @@
     if (!f) return drop.classList.remove('has');
     $('pimg').src = URL.createObjectURL(f);
     drop.classList.add('has');
+    if (window.track) window.track('photo_added', {}, true);
   });
+  // أول ما حد يبدأ يملا الفورم
+  $('f').addEventListener('focusin', () => { if (window.track) window.track('form_start', {}, true); });
+  $('f').addEventListener('click', () => { if (window.track) window.track('form_start', {}, true); });
   ['dragenter', 'dragover'].forEach((e) => drop.addEventListener(e, () => drop.classList.add('over')));
   ['dragleave', 'drop'].forEach((e) => drop.addEventListener(e, () => drop.classList.remove('over')));
 
@@ -130,7 +134,8 @@
       const r = await fetch('/api/orders', { method: 'POST', body: fd, headers: adminKey ? { 'x-admin-key': adminKey } : {} });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'حصلت مشكلة');
-      location.href = d.redirect;
+      if (window.track && !adminKey) window.track('begin_checkout', { value: Number($('price').textContent) || 199, currency: 'EGP' });
+      setTimeout(() => { location.href = d.redirect; }, 400);
     } catch (ex) {
       fail(ex.message);
       btn.disabled = false; btn.textContent = txt;

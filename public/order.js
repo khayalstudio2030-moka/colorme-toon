@@ -114,6 +114,7 @@
         const r = await fetch(`/api/orders/${encodeURIComponent(id)}/receipt?t=${encodeURIComponent(t)}`, { method: 'POST', body: fd });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'حصلت مشكلة');
+        if (window.track) window.track('receipt_uploaded', { value: Number(o.price) || 199, currency: 'EGP' });
         show(d);
       } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'ابعت الإيصال ✅'; }
     };

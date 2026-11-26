@@ -40,12 +40,13 @@
   </script>
   <meta name="google-site-verification" content="gc2gjlusNPh3dOiH84xr4A4UnVydZtAOKfw6jkiUh_E" />
   <link rel="stylesheet" href="/styles.css" />
+  <script src="/analytics.js"></script>
 </head>
 <body>
   <header class="top">
     <div class="wrap">
       <a href="/" class="brand" style="text-decoration:none"><img src="/img/logo.png" alt="ColorMe Toon" /> <span><b>ColorMe</b> <i>Toon</i></span></a>
-      <a class="btn alt" href="#order" style="font-size:16px;padding:8px 18px">اطلب دلوقتي</a>
+      <a class="btn alt" href="#order" onclick="window.track&&window.track('order_cta')" style="font-size:16px;padding:8px 18px">اطلب دلوقتي</a>
     </div>
   </header>
 
