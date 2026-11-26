@@ -8,6 +8,7 @@ const path = require('path');
 const store = require('./lib/store');
 const paymob = require('./lib/paymob');
 const notify = require('./lib/notify');
+const stats = require('./lib/stats');
 const coverGen = require('./lib/cover');
 const { buildBook } = require('./lib/book');
 
@@ -269,6 +270,34 @@ app.get('/api/admin/orders', (req, res) => {
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
     }));
   res.json({ paymentMode: PAYMENT_MODE, generator: GENERATOR(), whatsapp: { configured: notify.configured(), phone: notify.PHONE, channels: notify.channels() }, orders: list });
+});
+
+// ---------- عدّاد الزيارات ----------
+const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|preview|headless|lighthouse/i;
+app.post('/api/t', express.text({ type: '*/*', limit: '2kb' }), (req, res) => {
+  if (!BOT_UA.test(req.get('user-agent') || '')) {
+    let b = req.body;
+    if (typeof b === 'string') { try { b = JSON.parse(b); } catch { b = {}; } }
+    stats.record(b || {}, req.ip);
+  }
+  res.status(204).end();
+});
+
+app.get('/api/admin/stats', (req, res) => {
+  if (!isAdmin(req)) return res.status(401).json({ error: 'المفتاح غلط' });
+  const n = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
+  const list = stats.days(n);
+  const idx = Object.fromEntries(list.map((d, i) => [d.day, i]));
+  const ord = list.map(() => ({ created: 0, receipts: 0, ready: 0, paidCount: 0, revenue: 0, free: 0 }));
+  const at = (iso) => (iso ? idx[stats.cairoDay(new Date(iso))] : undefined);
+  for (const o of store.all()) {
+    let i = at(o.createdAt); if (i !== undefined) { ord[i].created++; if (o.adminFree) ord[i].free++; }
+    i = at(o.receiptAt); if (i !== undefined) ord[i].receipts++;
+    i = at(o.readyAt); if (i !== undefined) ord[i].ready++;
+    i = at(o.paidAt);
+    if (i !== undefined && !o.adminFree && ['paid', 'processing', 'ready', 'failed'].includes(o.status)) { ord[i].paidCount++; ord[i].revenue += Number(o.price) || 0; }
+  }
+  res.json({ since: stats.since(), days: list.map((d, i) => ({ ...d, orders: ord[i] })) });
 });
 
 app.post('/api/admin/notify-test', async (req, res) => {
