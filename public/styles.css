@@ -278,10 +278,12 @@ html, body { overflow-x: hidden; }
 .btype span small { color: var(--muted); font-size: 13px; line-height: 1.5; display: block; }
 .btype input:checked + span { border-color: var(--ink); background: var(--yellow); box-shadow: 3px 3px 0 var(--ink); }
 .btype input:focus-visible + span { outline: 3px solid var(--blue, #45b8e8); }
-.seg3 span small { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+.seg3 span small, .seg4 span small { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
 @media (max-width: 820px) {
   .btype { grid-template-columns: 1fr; }
   .btype span { display: flex; flex-direction: column; padding: 10px 12px; }
 }
 [hidden] { display: none !important; }
 .sec-hobbies { grid-column: 1 / -1; display: grid; gap: inherit; }
+.seg4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 820px) { .seg4 { grid-template-columns: 1fr 1fr; } }
