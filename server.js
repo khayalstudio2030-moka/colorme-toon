@@ -80,7 +80,8 @@ const uploadReceipt = multer({
 // ---------- برومبتات الصفحات (lib/prompts.js) ----------
 const { buildPrompts: buildPagePrompts, STYLE } = require('./lib/prompts');
 const pagesGen = require('./lib/pages');
-const buildPrompts = (order) => buildPagePrompts(order, IMAGES_COUNT);
+const books = require('./lib/books');
+const buildPrompts = (order) => { const bp = books.bookPages(order); return bp ? bp.map((p) => p.prompt) : buildPagePrompts(order, IMAGES_COUNT); };
 
 // ---------- إرسال الطلب للأتمتة ----------
 // مين بيرسم الصفحات: GENERATOR=server (السيرفر نفسه بيكلّم Gemini) أو n8n (الافتراضي)
@@ -96,7 +97,7 @@ async function dispatchToAutomation(order) {
     interests: order.interests,
     favoriteAnimal: order.favoriteAnimal,
     notes: order.notes,
-    imagesCount: IMAGES_COUNT,
+    imagesCount: books.pageCount(order),
     style: STYLE,
     suggestedPrompts: buildPrompts(order),
     callbackUrl: `${BASE_URL}/api/automation/callback`,
@@ -140,6 +141,9 @@ function publicOrder(o) {
     price: o.price,
     manualPay: PAYMENT_MODE === 'manual' ? MANUAL_PAY : undefined,
     rejectReason: o.status === 'payment_rejected' ? o.rejectReason || '' : undefined,
+    bookType: o.bookType || 'hobbies',
+    bookLabel: books.bookLabel(o),
+    total: books.pageCount(o),
     images: (o.images || []).map((_, i) => `/files/result/${o.id}/${i}?t=${o.accessToken}`),
     zipUrl: o.status === 'ready' ? `/api/orders/${o.id}/zip?t=${o.accessToken}` : null,
     pdfUrl: o.status === 'ready' ? `/api/orders/${o.id}/pdf?t=${o.accessToken}` : null,
@@ -178,7 +182,14 @@ app.post('/api/orders', (req, res) => {
     if (!childName) return fail('اكتب اسم الطفل');
     if (!parentName && !adminFree) return fail('اكتب اسمك');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !(adminFree && !email)) return fail('الإيميل مش صحيح');
-    if (!interests.length) return fail('اختار حاجة واحدة على الأقل الطفل بيحبها');
+    const bookType = ['habits', 'letters'].includes(b.bookType) ? b.bookType : 'hobbies';
+    const lettersSet = bookType === 'letters' ? (['ar', 'en', 'num'].includes(b.lettersSet) ? b.lettersSet : 'ar') : undefined;
+    let habits = [];
+    try { habits = JSON.parse(b.habits || '[]'); } catch {}
+    habits = (Array.isArray(habits) ? habits : []).map((s) => String(s).trim()).filter((h) => books.HABITS[h]).slice(0, 10);
+    if (bookType === 'hobbies' && !interests.length) return fail('اختار حاجة واحدة على الأقل الطفل بيحبها');
+    if (bookType === 'habits' && !habits.length) return fail('اختار عادة واحدة على الأقل');
+    if (bookType === 'habits' && !['boy', 'girl'].includes(b.childGender)) return fail('اختار ولد ولا بنت (عشان الجمل في الكتاب)');
     if (b.consent !== 'true') return fail('لازم توافق على الشروط');
 
     const order = store.create({
@@ -189,8 +200,11 @@ app.post('/api/orders', (req, res) => {
       childName,
       childAge: Number(b.childAge) > 0 && Number(b.childAge) < 18 ? Number(b.childAge) : null,
       childGender: ['boy', 'girl'].includes(b.childGender) ? b.childGender : null,
-      interests,
-      favoriteAnimal: String(b.favoriteAnimal || '').trim().slice(0, 40),
+      bookType,
+      lettersSet,
+      habits: bookType === 'habits' ? habits : undefined,
+      interests: bookType === 'hobbies' ? interests : [],
+      favoriteAnimal: bookType !== 'hobbies' ? '' : String(b.favoriteAnimal || '').trim().slice(0, 40),
       notes: String(b.notes || '').trim().slice(0, 300),
       parentName,
       email,
@@ -264,7 +278,7 @@ app.get('/api/admin/orders', (req, res) => {
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
     .slice(0, 200)
     .map((o) => ({
-      id: o.id, status: o.status, childName: o.childName, parentName: o.parentName, phone: o.phone, email: o.email,
+      id: o.id, status: o.status, childName: o.childName, bookType: o.bookType || 'hobbies', bookLabel: books.bookLabel(o), total: books.pageCount(o), parentName: o.parentName, phone: o.phone, email: o.email,
       price: o.price, paymentMethod: o.paymentMethod, senderInfo: o.senderInfo, receiptAt: o.receiptAt,
       hasReceipt: !!o.receiptFile, adminFree: !!o.adminFree, coverStatus: o.coverStatus || null, createdAt: o.createdAt, images: (o.images || []).length, rejectReason: o.rejectReason, error: o.error || o.dispatchError || null, generator: o.generator || null, dispatchedAt: o.dispatchedAt || null,
       orderUrl: `/order.html?id=${o.id}&t=${o.accessToken}`,
@@ -408,7 +422,7 @@ app.post('/api/automation/callback', uploadResults.array('images', 20), async (r
       return name;
     });
     const images = [...existing, ...names];
-    const done = !append || images.length >= IMAGES_COUNT || b.final === 'true' || b.final === true;
+    const done = !append || images.length >= books.pageCount(o) || b.final === 'true' || b.final === true;
     const u = store.update(o.id, { images, status: done ? 'ready' : 'processing', readyAt: done ? new Date().toISOString() : null });
     if (done && !u.cover && u.coverStatus !== 'pending') makeCover(u.id);
     console.log(`[automation] الطلب ${o.id}: اتستلم ${names.length} صورة (${done ? 'جاهز' : 'لسه'})`);
@@ -519,7 +533,8 @@ app.post('/api/admin/orders/:id/redo-page', async (req, res) => {
   const o = store.get(req.params.id);
   const n = Number((req.body || {}).page);
   if (!o || o.status !== 'ready') return res.status(400).json({ error: 'الطلب لسه مش جاهز' });
-  if (!Number.isInteger(n) || n < 1 || n > IMAGES_COUNT) return res.status(400).json({ error: `رقم الصفحة لازم يكون من 1 لـ ${IMAGES_COUNT}` });
+  const max = books.pageCount(o);
+  if (!Number.isInteger(n) || n < 1 || n > max) return res.status(400).json({ error: `رقم الصفحة لازم يكون من 1 لـ ${max}` });
   if (!pagesGen.enabled()) return res.status(400).json({ error: 'ناقص GEMINI_API_KEY في Railway' });
   const photoPath = childPhoto(o);
   if (!photoPath) return res.status(400).json({ error: 'صورة الطفل اتمسحت (بعد 7 أيام)، مينفعش نعيد الرسم' });
@@ -572,7 +587,8 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
     const dir = path.join(RESULTS, o.id);
     const pages = (o.images || []).map((n) => path.join(dir, n)).filter((p) => fs.existsSync(p));
     const coverPath = o.cover && fs.existsSync(path.join(dir, o.cover)) ? path.join(dir, o.cover) : null;
-    const pdf = await buildBook({ order: o, pages, coverPath });
+    const bp = books.bookPages(o);
+    const pdf = await buildBook({ order: o, pages, coverPath, title: books.bookTitle(o), captions: bp ? bp.map((p) => p.caption) : null });
     const safe = String(o.childName || 'book').replace(/[^\p{L}\p{N}]+/gu, '-');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="ColorMe-Toon.pdf"; filename*=UTF-8''${encodeURIComponent('كتاب-تلوين-' + safe + '.pdf')}`);
