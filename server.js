@@ -81,6 +81,23 @@ const uploadReceipt = multer({
 const { buildPrompts: buildPagePrompts, STYLE } = require('./lib/prompts');
 const pagesGen = require('./lib/pages');
 const books = require('./lib/books');
+const { composePage } = require('./lib/compose');
+// صفحة الحروف/الأرقام النهائية (بالحرف فوق والكلمة تحت) — بتتعمل مرة وتتحفظ، وتتعاد لو الرسمة اتغيّرت
+function finalPage(o, i) {
+  const name = (o.images || [])[i];
+  if (!name) return null;
+  const raw = path.join(RESULTS, o.id, name);
+  if (o.bookType !== 'letters' || !fs.existsSync(raw)) return raw;
+  const out = path.join(RESULTS, o.id, `final-${String(i + 1).padStart(2, '0')}.png`);
+  try {
+    if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < fs.statSync(raw).mtimeMs) {
+      const buf = composePage(raw, books.setKey(o), i + 1);
+      if (!buf) return raw;
+      fs.writeFileSync(out, buf);
+    }
+    return out;
+  } catch (e) { console.error('[compose]', o.id, i + 1, e.message); return raw; }
+}
 const buildPrompts = (order) => { const bp = books.bookPages(order); return bp ? bp.map((p) => p.prompt) : buildPagePrompts(order, IMAGES_COUNT); };
 
 // ---------- إرسال الطلب للأتمتة ----------
@@ -183,7 +200,7 @@ app.post('/api/orders', (req, res) => {
     if (!parentName && !adminFree) return fail('اكتب اسمك');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !(adminFree && !email)) return fail('الإيميل مش صحيح');
     const bookType = ['habits', 'letters'].includes(b.bookType) ? b.bookType : 'hobbies';
-    const lettersSet = bookType === 'letters' ? (['ar', 'en', 'num'].includes(b.lettersSet) ? b.lettersSet : 'ar') : undefined;
+    const lettersSet = bookType === 'letters' ? (['ar', 'en', 'num_ar', 'num_en'].includes(b.lettersSet) ? b.lettersSet : 'ar') : undefined;
     let habits = [];
     try { habits = JSON.parse(b.habits || '[]'); } catch {}
     habits = (Array.isArray(habits) ? habits : []).map((s) => String(s).trim()).filter((h) => books.HABITS[h]).slice(0, 10);
@@ -505,6 +522,7 @@ async function generateOnServer(orderId) {
     if (images.length >= prompts.length) {
       const u = store.update(o.id, { images, status: 'ready', readyAt: new Date().toISOString(), error: null });
       console.log(`[pages] ${o.id}: الكتاب جاهز`);
+      if (u.bookType === 'letters') { let i = 0; const next = () => { if (i < images.length) { finalPage(u, i++); setImmediate(next); } }; setImmediate(next); }
       if (!u.cover && u.coverStatus !== 'pending') makeCover(u.id);
     } else {
       const err = errors.join(' | ').slice(0, 500);
@@ -585,10 +603,10 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
   Object.assign(o, store.get(o.id));
   try {
     const dir = path.join(RESULTS, o.id);
-    const pages = (o.images || []).map((n) => path.join(dir, n)).filter((p) => fs.existsSync(p));
+    const pages = (o.images || []).map((_, i) => finalPage(o, i)).filter((p) => p && fs.existsSync(p));
     const coverPath = o.cover && fs.existsSync(path.join(dir, o.cover)) ? path.join(dir, o.cover) : null;
     const bp = books.bookPages(o);
-    const pdf = await buildBook({ order: o, pages, coverPath, title: books.bookTitle(o), captions: bp ? bp.map((p) => p.caption) : null });
+    const pdf = await buildBook({ order: o, pages, coverPath, title: books.bookTitle(o), captions: bp && o.bookType === 'habits' ? bp.map((p) => p.caption) : null });
     const safe = String(o.childName || 'book').replace(/[^\p{L}\p{N}]+/gu, '-');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="ColorMe-Toon.pdf"; filename*=UTF-8''${encodeURIComponent('كتاب-تلوين-' + safe + '.pdf')}`);
@@ -611,9 +629,9 @@ app.post('/api/admin/orders/:id/cover', (req, res) => {
 
 app.get('/files/result/:id/:n', (req, res) => {
   const o = authOrder(req, res); if (!o) return;
-  const name = (o.images || [])[Number(req.params.n)];
-  if (!name) return res.status(404).end();
-  res.sendFile(path.join(RESULTS, o.id, name));
+  const f = finalPage(o, Number(req.params.n));
+  if (!f) return res.status(404).end();
+  res.sendFile(f);
 });
 
 app.get('/api/orders/:id/zip', (req, res) => {
@@ -624,7 +642,7 @@ app.get('/api/orders/:id/zip', (req, res) => {
   zip.on('error', () => res.end());
   zip.pipe(res);
   if (o.cover && fs.existsSync(path.join(RESULTS, o.id, o.cover))) zip.file(path.join(RESULTS, o.id, o.cover), { name: '00-' + o.cover });
-  for (const name of o.images) zip.file(path.join(RESULTS, o.id, name), { name });
+  o.images.forEach((name, i) => { const f = finalPage(o, i); if (f) zip.file(f, { name: `page-${String(i + 1).padStart(2, '0')}${path.extname(f)}` }); });
   zip.finalize();
 });
 
