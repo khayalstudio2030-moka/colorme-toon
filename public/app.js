@@ -87,6 +87,15 @@
   $('addAnimal').onclick = addAnimal;
   $('customAnimal').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addAnimal(); } });
 
+  // الموبايل: اعرض أكتر في الهوايات والحيوانات
+  document.querySelectorAll('.more-chips').forEach((b) => (b.onclick = () => { $(b.dataset.for).classList.remove('collapsed'); b.classList.add('gone'); }));
+
+  // الزرار الثابت تحت: يختفي لما الفورم يظهر
+  const sticky = $('stickyCta'), orderSec = $('order');
+  if (sticky && orderSec && 'IntersectionObserver' in window) {
+    new IntersectionObserver((es) => es.forEach((e) => sticky.classList.toggle('hide', e.isIntersecting || e.boundingClientRect.top < 0))).observe(orderSec);
+  }
+
   // الصورة
   const drop = $('drop'), photo = $('photo');
   photo.addEventListener('change', () => {

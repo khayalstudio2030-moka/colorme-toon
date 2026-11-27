@@ -56,6 +56,7 @@
         <h1>كتاب تلوين <mark>بطل طفلك</mark> 🎨</h1>
         <p class="lead">ارفع صورة طفلك وقولنا بيحب يعمل إيه، وهنرسمهولك في <b>10 صفحات تلوين كارتون</b> جاهزة للطباعة — بيلعب كورة، بيطير في الفضاء، أو مع حيواناته المفضلة.</p>
         <span class="price-tag" id="priceTag">10 صفحات بـ <b id="price">199</b> جنيه</span>
+        <div class="hero-cta"><a href="#order" class="btn" onclick="window.track&&window.track('order_cta')">اعمل كتاب لطفلك 🎨</a></div>
       </div>
       <div class="hero-art"><img src="/img/hero.png" alt="قلم ColorMe Toon بيرسم صفحة تلوين لطفل" /></div>
     </section>
@@ -77,7 +78,7 @@
       </div>
       <p class="gal-tags" id="galTags"></p>
       <p class="gal-note">النماذج دي لأطفال متخيّلين اتعملوا بالذكاء الاصطناعي، عشان نحافظ على خصوصية أطفال عملائنا.</p>
-      <div style="text-align:center;margin-top:18px"><a href="#order" class="btn">اعمل كتاب لطفلك 🎨</a></div>
+      <div style="text-align:center;margin-top:18px"><a href="#order" class="btn" onclick="window.track&&window.track('order_cta')">اعمل كتاب لطفلك 🎨</a></div>
     </section>
     <div class="lightbox" id="lightbox" hidden><button class="lb-x" aria-label="إغلاق">✕</button><button class="lb-nav lb-prev" aria-label="السابق">→</button><img id="lbImg" alt="" /><button class="lb-nav lb-next" aria-label="التالي">←</button></div>
 
@@ -109,7 +110,8 @@
 
           <div class="field full">
             <label class="lbl">بيحب يعمل إيه؟ <small>(اختار لحد 10)</small></label>
-            <div class="chips" id="chips"></div>
+            <div class="chips collapsed" id="chips"></div>
+            <button type="button" class="more-chips" data-for="chips">اعرض هوايات أكتر ▾</button>
             <div class="add-row">
               <input type="text" id="customInterest" maxlength="40" placeholder="حاجة تانية؟ اكتبها هنا…" />
               <button type="button" class="btn alt" id="addInterest" style="font-size:16px;padding:8px 18px;box-shadow:3px 3px 0 var(--ink)">ضيف</button>
@@ -118,7 +120,8 @@
 
           <div class="field full">
             <label class="lbl">حيوانه المفضل؟ <small>(اختياري — هيظهر معاه في الصفحات)</small></label>
-            <div class="chips" id="animalChips"></div>
+            <div class="chips collapsed" id="animalChips"></div>
+            <button type="button" class="more-chips" data-for="animalChips">اعرض حيوانات أكتر ▾</button>
             <div class="add-row">
               <input type="text" id="customAnimal" maxlength="30" placeholder="حيوان تاني؟ اكتبه هنا…" />
               <button type="button" class="btn alt" id="addAnimal" style="font-size:16px;padding:8px 18px;box-shadow:3px 3px 0 var(--ink)">ضيف</button>
@@ -143,6 +146,7 @@
       </form>
     </section>
   </main>
+  <a href="#order" class="sticky-cta" id="stickyCta" onclick="window.track&&window.track('order_cta')">اعمل كتاب لطفلك — 199 جنيه 🎨</a>
 
   <nav class="social" aria-label="تابعنا على السوشيال ميديا">
     <span class="social-t">تابعنا</span>

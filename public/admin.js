@@ -128,7 +128,7 @@
     ['visit', 'دخلوا الموقع'], ['order_cta', 'داسوا «اطلب»'], ['form_start', 'بدأوا يملوا الفورم'],
     ['photo_added', 'رفعوا صورة الطفل'], ['begin_checkout', 'بعتوا الطلب'], ['receipt_uploaded', 'رفعوا إيصال الدفع'],
   ];
-  const SRC = { facebook: 'فيسبوك', instagram: 'إنستجرام', tiktok: 'تيك توك', google: 'جوجل', linkedin: 'لينكد إن', whatsapp: 'واتساب', direct: 'مباشر / من غير مصدر', efham: 'منصة افهم' };
+  const SRC = { facebook: 'فيسبوك', fb: 'فيسبوك (إعلان)', ig: 'إنستجرام (إعلان)', instagram: 'إنستجرام', tiktok: 'تيك توك', google: 'جوجل', linkedin: 'لينكد إن', whatsapp: 'واتساب', direct: 'مباشر / من غير مصدر', efham: 'منصة افهم' };
   const RANGES = [[1, 'النهارده'], ['y', 'امبارح'], [7, 'آخر 7 أيام'], [30, 'آخر 30 يوم']];
   let range = 7, statsData = null;
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
