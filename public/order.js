@@ -44,7 +44,7 @@
       box.innerHTML = `<img class="mascot" src="/img/step-interests.png" alt=""/><h2>بنرسم صفحات ${name} دلوقتي!</h2>
         <p class="hint">ده بياخد كام دقيقة. سيب الصفحة مفتوحة أو ارجعلها بعدين بنفس اللينك.</p>
         <div class="progress"><i></i></div>
-        ${o.images.length ? `<p class="hint">خلص ${o.images.length} من 10</p>` : ''}`;
+        ${o.images.length ? `<p class="hint">خلص ${o.images.length} من ${o.total || 10}</p>` : ''}`;
       timer = setTimeout(load, 5000);
     } else if (o.status === 'ready') {
       box.innerHTML = `<img class="mascot" src="/img/step-download.png" alt=""/><h2>كتاب تلوين ${name} جاهز!</h2>

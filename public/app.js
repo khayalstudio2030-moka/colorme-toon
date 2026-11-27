@@ -10,6 +10,10 @@
     '🐱 قطة', '🐶 كلب', '🐰 أرنب', '🐎 حصان', '🦜 ببغاء', '🐧 بطريق', '🐬 دولفين', '🦁 أسد', '🐢 سلحفاة',
     '🦆 بطة', '🐘 فيل', '🐟 سمكة', '🦋 فراشة', '🐼 باندا', '🦒 زرافة', '🐒 قرد', '🦖 ديناصور', '🦄 يونيكورن',
   ];
+  const HABITS = [
+    '🦷 غسيل السنان', '🌙 النوم بدري', '📵 قفل الموبايل', '🧸 ترتيب اللعب', '🥦 الأكل الصحي', '🧼 غسيل الإيدين',
+    '🍽️ مساعدة ماما', '✏️ المذاكرة', '📚 القراءة', '🌸 الأدب', '🤝 المشاركة', '💧 شرب الماية', '🤸 الرياضة', '👟 يلبس لوحده', '🛁 الاستحمام',
+  ];
   const strip = (s) => s.replace(/^[\p{Extended_Pictographic}\u200d\ufe0f\s]+/u, '').trim();
   let animal = '';
   const MAX = 10;
@@ -63,6 +67,32 @@
   }
   $('addInterest').onclick = addCustom;
   $('customInterest').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+
+  // نوع الكتاب
+  const habitSel = new Set();
+  const hchips = $('habitChips');
+  function renderHabits() {
+    hchips.innerHTML = '';
+    for (const label of HABITS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (habitSel.has(label) ? ' on' : '');
+      b.textContent = label;
+      b.onclick = () => { if (habitSel.has(label)) habitSel.delete(label); else if (habitSel.size < MAX) habitSel.add(label); renderHabits(); };
+      hchips.appendChild(b);
+    }
+  }
+  renderHabits();
+  const bookType = () => (document.querySelector('input[name=bookType]:checked') || {}).value || 'hobbies';
+  function syncType() {
+    const t = bookType();
+    $('secHobbies').hidden = t !== 'hobbies';
+    $('secHabits').hidden = t !== 'habits';
+    $('secLetters').hidden = t !== 'letters';
+  }
+  document.querySelectorAll('input[name=bookType]').forEach((r) => r.addEventListener('change', () => { syncType(); if (window.track) window.track('book_type_' + bookType(), {}, true); }));
+  try { const q = new URLSearchParams(location.search).get('book'); const r = q && document.querySelector(`input[name=bookType][value="${q}"]`); if (r) r.checked = true; } catch {}
+  syncType();
 
   // الحيوان المفضل (اختيار واحد)
   const achips = $('animalChips');
@@ -120,7 +150,11 @@
     if (!f) return fail('ارفع صورة الطفل الأول');
     if (f.size > 10 * 1024 * 1024) return fail('الصورة أكبر من 10 ميجا');
     if (!$('childName').value.trim()) return fail('اكتب اسم الطفل');
-    if (!selected.size) return fail('اختار حاجة واحدة على الأقل بيحبها');
+    const t = bookType();
+    const g0 = document.querySelector('input[name=childGender]:checked');
+    if (t === 'hobbies' && !selected.size) return fail('اختار حاجة واحدة على الأقل بيحبها');
+    if (t === 'habits' && !habitSel.size) return fail('اختار عادة واحدة على الأقل');
+    if (t === 'habits' && !g0) return fail('اختار ولد ولا بنت (عشان الجمل اللي في الكتاب)');
     if (!adminKey && !$('parentName').value.trim()) return fail('اكتب اسمك');
     const em = $('email').value.trim();
     if (!(adminKey && !em) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return fail('الإيميل مش صحيح');
@@ -132,8 +166,13 @@
     const g = document.querySelector('input[name=childGender]:checked');
     if (g) fd.append('childGender', g.value);
     // نشيل الإيموجي قبل ما نبعت
-    fd.append('interests', JSON.stringify([...selected].map(strip)));
-    if (animal) fd.append('favoriteAnimal', animal);
+    fd.append('bookType', t);
+    if (t === 'hobbies') {
+      fd.append('interests', JSON.stringify([...selected].map(strip)));
+      if (animal) fd.append('favoriteAnimal', animal);
+    }
+    if (t === 'habits') fd.append('habits', JSON.stringify([...habitSel].map(strip)));
+    if (t === 'letters') fd.append('lettersSet', (document.querySelector('input[name=lettersSet]:checked') || {}).value || 'ar');
     fd.append('consent', 'true');
     if (adminKey) fd.append('adminFree', 'true');
 

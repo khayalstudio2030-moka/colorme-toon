@@ -66,7 +66,7 @@
       return `<div class="ord">
         ${rc ? `<a href="${rc}" target="_blank"><img class="rc" src="${rc}" alt="الإيصال" onerror="this.outerHTML='<div class=rc>📄 الإيصال<br/>(اضغط للفتح)</div>'"/></a>` : '<div class="rc">مفيش إيصال</div>'}
         <div>
-          <h3>${esc(o.childName)} <span class="badge ${o.status}">${LABEL[o.status] || o.status}</span>${o.adminFree ? ' <span class="badge free">🎁 مجاني</span>' : ''}</h3>
+          <h3>${esc(o.childName)} <span class="badge ${o.status}">${LABEL[o.status] || o.status}</span>${o.adminFree ? ' <span class="badge free">🎁 مجاني</span>' : ''}${o.bookType && o.bookType !== 'hobbies' ? ` <span class="badge">${esc(o.bookLabel)}</span>` : ''}</h3>
           <div class="meta">
             <div><b>المبلغ:</b> ${esc(o.price)} جنيه ${o.paymentMethod ? `— ${o.paymentMethod === 'wallet' ? 'محفظة' : 'إنستاباي'}` : ''}</div>
             ${o.senderInfo ? `<div><b>حوّل من:</b> ${esc(o.senderInfo)}</div>` : ''}
@@ -74,7 +74,7 @@
             <div><b>وقت الطلب:</b> ${new Date(o.createdAt).toLocaleString('ar-EG')}</div>
             ${o.receiptAt ? `<div><b>وقت الإيصال:</b> ${new Date(o.receiptAt).toLocaleString('ar-EG')}</div>` : ''}
             ${o.rejectReason ? `<div><b>سبب الرفض:</b> ${esc(o.rejectReason)}</div>` : ''}
-            ${o.images ? `<div><b>الصفحات:</b> ${o.images} من 10${o.coverStatus ? ` — <b>الغلاف:</b> ${{ done: '✅ جاهز', pending: '⏳ بيتلوّن', failed: '❌ فشل', off: 'مش متفعّل' }[o.coverStatus] || o.coverStatus}` : ''}</div>` : ''}
+            ${o.images ? `<div><b>الصفحات:</b> ${o.images} من ${o.total || 10}${o.coverStatus ? ` — <b>الغلاف:</b> ${{ done: '✅ جاهز', pending: '⏳ بيتلوّن', failed: '❌ فشل', off: 'مش متفعّل' }[o.coverStatus] || o.coverStatus}` : ''}</div>` : ''}
             ${o.status === 'failed' && o.error ? `<div style="color:#c0392b"><b>المشكلة:</b> ${esc(o.error)}</div>` : ''}
             <div class="hint" style="font-size:12px">${o.id}${o.generator === 'server' ? ' — اترسم من السيرفر' : ''}</div>
           </div>
@@ -108,7 +108,7 @@
     }
     if (a === 'resume' && !confirm(`تكمّل رسم طلب ${o.childName}؟ الصفحات الناقصة بس هي اللي هتترسم.`)) return;
     if (a === 'redo') {
-      const n = prompt(`رقم الصفحة اللي عايز ترسمها تاني (1 لـ 10)؟\nصفحة 1 بيتعمل منها الغلاف كمان، فهيتلوّن من جديد.`, '');
+      const n = prompt(`رقم الصفحة اللي عايز ترسمها تاني (1 لـ ${o.total || 10})؟\nصفحة 1 بيتعمل منها الغلاف كمان، فهيتلوّن من جديد.`, '');
       if (n === null || !n.trim()) return;
       a = 'redo-page'; body = { page: Number(n.trim()) };
       btn.textContent = '⏳ بنرسم الصفحة… (حوالي دقيقة)';

@@ -89,6 +89,14 @@
       <form id="f" novalidate>
         <div class="grid">
           <div class="field full">
+            <label class="lbl">نوع الكتاب</label>
+            <div class="btype">
+              <label><input type="radio" name="bookType" value="hobbies" checked /><span><b>🎨 هواياته</b><small>10 صفحات وهو بيعمل الحاجات اللي بيحبها</small></span></label>
+              <label><input type="radio" name="bookType" value="habits" /><span><b>⭐ العادات الحلوة</b><small>10 صفحات بيتعلّم فيها عادات حلوة، باسمه</small></span></label>
+              <label><input type="radio" name="bookType" value="letters" /><span><b>🔤 الحروف والأرقام</b><small>كل حرف أو رقم في صفحة مع طفلك</small></span></label>
+            </div>
+          </div>
+          <div class="field full">
             <label class="lbl">صورة الطفل</label>
             <div class="drop" id="drop">
               <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" />
@@ -108,6 +116,7 @@
             </div>
           </div>
 
+          <div class="sec-hobbies" id="secHobbies">
           <div class="field full">
             <label class="lbl">بيحب يعمل إيه؟ <small>(اختار لحد 10)</small></label>
             <div class="chips collapsed" id="chips"></div>
@@ -126,6 +135,24 @@
               <input type="text" id="customAnimal" maxlength="30" placeholder="حيوان تاني؟ اكتبه هنا…" />
               <button type="button" class="btn alt" id="addAnimal" style="font-size:16px;padding:8px 18px;box-shadow:3px 3px 0 var(--ink)">ضيف</button>
             </div>
+          </div>
+          </div>
+
+          <div class="field full" id="secHabits" hidden>
+            <label class="lbl">عايزه يتعلّم إيه؟ <small>(اختار لحد 10 — ولو اخترت أقل، هنكمّل الـ 10 صفحات بأهم العادات)</small></label>
+            <div class="chips collapsed" id="habitChips"></div>
+            <button type="button" class="more-chips" data-for="habitChips">اعرض عادات أكتر ▾</button>
+            <p class="hint" style="margin:8px 0 0">تحت كل صفحة جملة باسم طفلك، زي: «يوسف بيغسل سنانه الصبح وبالليل».</p>
+          </div>
+
+          <div class="field full" id="secLetters" hidden>
+            <label class="lbl">حروف ولا أرقام؟</label>
+            <div class="seg seg3">
+              <label><input type="radio" name="lettersSet" value="ar" checked /><span>🔤 حروف عربي<small>28 صفحة</small></span></label>
+              <label><input type="radio" name="lettersSet" value="en" /><span>🔠 ABC إنجليزي<small>26 صفحة</small></span></label>
+              <label><input type="radio" name="lettersSet" value="num" /><span>🔢 أرقام 1–10<small>10 صفحات</small></span></label>
+            </div>
+            <p class="hint" style="margin:8px 0 0">كل صفحة فيها طفلك مع حاجة بتبدأ بالحرف (أ – أرنب)، والحرف والكلمة مكتوبين مفرّغين عشان يلوّنهم.</p>
           </div>
 
           <div class="field full"><label class="lbl" for="notes">ملاحظات <small>(اختياري — شخصيته، لون شعره، لبسه المفضل…)</small></label><textarea id="notes" name="notes" maxlength="300"></textarea></div>
