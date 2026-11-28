@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "ColorMe Toon — كتاب تلوين بطله طفلك",
+  "short_name": "ColorMe Toon",
+  "description": "كتاب تلوين بشكل طفلك: هواياته، العادات الحلوة، الحروف والأرقام — 199 جنيه",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/?utm_source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fffaf0",
+  "theme_color": "#ff8a3d",
+  "categories": ["kids", "education", "shopping"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

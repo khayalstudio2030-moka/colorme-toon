@@ -42,9 +42,16 @@
     .st-note { background: #fff3cd; border: 2px solid var(--ink); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-top: 10px; }
     @media (max-width: 600px) { .st-cols { grid-template-columns: 1fr; } .fun-row { grid-template-columns: 105px 1fr 82px; font-size: 13px; } }
   </style>
+  <link rel="manifest" href="/admin.webmanifest" />
+  <meta name="theme-color" content="#ff8a3d" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="لوحة ColorMe" />
+  <link rel="apple-touch-icon" href="/icons/admin-apple.png" />
+  <script src="/pwa.js" defer></script>
 </head>
 <body>
-  <header class="top"><div class="wrap"><a href="/" class="brand" style="text-decoration:none"><img src="/img/logo.png" alt="ColorMe Toon" /> <span><b>ColorMe</b> <i>Toon</i></span></a></div></header>
+  <header class="top"><div class="wrap"><a href="/" class="brand" style="text-decoration:none"><img src="/img/logo.png" alt="ColorMe Toon" /> <span><b>ColorMe</b> <i>Toon</i></span></a><a href="#" class="btn alt small" data-install hidden style="margin-inline-start:auto">📲 نزّل اللوحة كتطبيق</a></div></header>
   <main class="wrap adm">
     <section class="card" id="login" style="display:none;max-width:480px;margin:auto">
       <h2>لوحة الطلبات</h2>
