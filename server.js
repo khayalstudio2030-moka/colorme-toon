@@ -90,7 +90,9 @@ function finalPage(o, i) {
   if (o.bookType !== 'letters' || !fs.existsSync(raw)) return raw;
   const out = path.join(RESULTS, o.id, `final-${String(i + 1).padStart(2, '0')}.png`);
   try {
-    if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < fs.statSync(raw).mtimeMs) {
+    const g = path.join(__dirname, 'assets', 'glyphs', `${books.setKey(o)}-${String(i + 1).padStart(2, '0')}-word.png`);
+    const newest = Math.max(fs.statSync(raw).mtimeMs, fs.existsSync(g) ? fs.statSync(g).mtimeMs : 0);
+    if (!fs.existsSync(out) || fs.statSync(out).mtimeMs < newest) {
       const buf = composePage(raw, books.setKey(o), i + 1);
       if (!buf) return raw;
       fs.writeFileSync(out, buf);
